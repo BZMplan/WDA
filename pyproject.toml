@@ -1,0 +1,17 @@
+[project]
+name = "web"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.116.1",
+    "matplotlib>=3.10.5",
+    "pandas>=2.3.1",
+    "pydantic",
+    "seaborn>=0.13.2",
+    "uvicorn>=0.35.0",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
