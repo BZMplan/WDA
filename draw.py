@@ -135,5 +135,5 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
     plt.savefig(f"./image/{file_name}")
 
 
-draw_last_hour("./data/test/esp32 test 2.csv","temperature",1,sep='|',zone='Asia/Shanghai')
+draw_last_hour("./data/test/esp32 test.csv","temperature",1,sep='|',zone='Asia/Shanghai')
 #draw_specific_day("./data/test/esp32 test.csv","temperature", specific_date="2025-8-18", sep='|', zone='Asia/Shanghai')
