@@ -26,7 +26,8 @@ class element(BaseModel):
 
 class data(BaseModel):
     station_name:str
-    element:str
+    timestamp:int = None
+    element:str = "all"
 
 ALLOWED_TOKENS = {
     "a0556d20-e469-4b17-a74d-10ee9891adf7",
@@ -59,6 +60,7 @@ def clean_nan_values(data: dict) -> dict:
         for key, value in data.items()
     }
 
+# 上传站点数据，需要token验证
 @app.post("/api/upload/station")
 async def api_upload_station(item: element, token: str = Depends(verify_token)):
     station_name = item.station_name
@@ -97,6 +99,7 @@ async def api_upload_station(item: element, token: str = Depends(verify_token)):
 
     return {"status": status.HTTP_200_OK,"message": "upload success", "data": data}
 
+# 上传站点数据到test，不需要token验证
 @app.post("/api/upload/test")
 async def api_upload_test(item: element):
 
@@ -136,22 +139,78 @@ async def api_upload_test(item: element):
 
     return {"status": status.HTTP_200_OK,"message": "upload success", "data": data}
 
+# 获取站点数据，需要token验证
+@app.get("/api/get/station")
+async def api_get_station(item: data,token:str = Depends(verify_token)):
+    #未指定时间戳时，返回最新数据
+    if item.timestamp is None:
+        file_name = f"{item.station_name}.csv"
+        df = pd.read_csv(f"./data/station/{file_name}", sep="|")
+        
+        if item.element == "all":
+            result = df[["station_name", "timestamp"] + list(df.columns[2:])].to_dict(orient="records")[-1]
+        else:
+            if item.element not in df.columns:
+                return {"status": status.HTTP_400_BAD_REQUEST, "message": "element not found", "data": None}
+            result = df[["station_name","timestamp", item.element]].to_dict(orient="records")[-1]
+            if not result:
+                return {"status": status.HTTP_404_NOT_FOUND, "message": "no data found", "data": None}    
+        
+        result = clean_nan_values(result)
+        return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
+    #指定时间戳时，返回该时间戳的数据
+    else:
+        file_name = f"{item.station_name}.csv"
+        df = pd.read_csv(f"./data/station/{file_name}", sep="|")
+        
+        if item.element == "all":
+            result = df[["station_name", "timestamp"] + list(df.columns[2:])].loc[df["timestamp"] == item.timestamp].to_dict(orient="records")[-1]
+        else:
+            if item.element not in df.columns:
+                return {"status": status.HTTP_400_BAD_REQUEST, "message": "element not found", "data": None}
+            result = df[["station_name","timestamp", item.element]].loc[df["timestamp"] == item.timestamp].to_dict(orient="records")[-1]
+            if not result:
+                return {"status": status.HTTP_404_NOT_FOUND, "message": "no data found", "data": None}    
+        
+        result = clean_nan_values(result)
+        return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
+
+# 获取站点数据从test，不需要token验证
 @app.get("/api/get/test")
 async def api_get_test(item: data):
-    file_name = f"{item.station_name}.csv"
-    df = pd.read_csv(f"./data/test/{file_name}", sep="|")
     
-    if item.element == "all":
-        result = df[["station_name", "timestamp"] + list(df.columns[2:])].to_dict(orient="records")[-1]
+    #未指定时间戳时，返回最新数据
+    if item.timestamp is None:
+        file_name = f"{item.station_name}.csv"
+        df = pd.read_csv(f"./data/test/{file_name}", sep="|")
+        
+        if item.element == "all":
+            result = df[["station_name", "timestamp"] + list(df.columns[2:])].to_dict(orient="records")[-1]
+        else:
+            if item.element not in df.columns:
+                return {"status": status.HTTP_400_BAD_REQUEST, "message": "element not found", "data": None}
+            result = df[["station_name","timestamp", item.element]].to_dict(orient="records")[-1]
+            if not result:
+                return {"status": status.HTTP_404_NOT_FOUND, "message": "no data found", "data": None}    
+        
+        result = clean_nan_values(result)
+        return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
+    #指定时间戳时，返回该时间戳的数据
     else:
-        if item.element not in df.columns:
-            return {"status": status.HTTP_400_BAD_REQUEST, "message": "element not found", "data": None}
-        result = df[["station_name","timestamp", item.element]].to_dict(orient="records")[-1]
-        if not result:
-            return {"status": status.HTTP_404_NOT_FOUND, "message": "no data found", "data": None}    
-    
-    result = clean_nan_values(result)
-    return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
+        file_name = f"{item.station_name}.csv"
+        df = pd.read_csv(f"./data/test/{file_name}", sep="|")
+        
+        if item.element == "all":
+            result = df[["station_name", "timestamp"] + list(df.columns[2:])].loc[df["timestamp"] == item.timestamp].to_dict(orient="records")[-1]
+        else:
+            if item.element not in df.columns:
+                return {"status": status.HTTP_400_BAD_REQUEST, "message": "element not found", "data": None}
+            result = df[["station_name","timestamp", item.element]].loc[df["timestamp"] == item.timestamp].to_dict(orient="records")[-1]
+            if not result:
+                return {"status": status.HTTP_404_NOT_FOUND, "message": "no data found", "data": None}    
+        
+        result = clean_nan_values(result)
+        return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
 
 if __name__ == "__main__":
     import uvicorn
