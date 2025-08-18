@@ -127,4 +127,4 @@ async def api_upload_test(item: Station):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app=app, host="192.168.137.1", port=80, workers=1)
+    uvicorn.run(app=app, host="0.0.0.0", port=80, workers=1)
