@@ -2,13 +2,14 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pandas.io.common import file_exists
 from pydantic import BaseModel, Extra
+from typing import Optional
 import pandas as pd
 import time
-from typing import Optional
+import math
 
 app = FastAPI()
 
-class Station(BaseModel):
+class element(BaseModel):
     station_name: Optional[str] = None  # 站点名称
     timestamp: Optional[int] = None  # 时间戳
     temperature: Optional[float] = None  # 气温
@@ -22,6 +23,10 @@ class Station(BaseModel):
 
     class Config:
         extra = Extra.ignore
+
+class data(BaseModel):
+    station_name:str
+    element:str
 
 ALLOWED_TOKENS = {
     "a0556d20-e469-4b17-a74d-10ee9891adf7",
@@ -47,8 +52,15 @@ def verify_token(token: str = Depends(oauth2_scheme)):
         )
     return token
 
+def clean_nan_values(data: dict) -> dict:
+    """将字典中的NaN值替换为None，确保JSON序列化正常"""
+    return {
+        key: None if isinstance(value, float) and math.isnan(value) else value
+        for key, value in data.items()
+    }
+
 @app.post("/api/upload/station")
-async def api_upload_station(item: Station, token: str = Depends(verify_token)):
+async def api_upload_station(item: element, token: str = Depends(verify_token)):
     station_name = item.station_name
     timestamp = item.timestamp if item.timestamp is not None else int(time.time())
     temperature = item.temperature if item.temperature is not None else "NULL"
@@ -86,7 +98,7 @@ async def api_upload_station(item: Station, token: str = Depends(verify_token)):
     return {"status": status.HTTP_200_OK,"message": "upload success", "data": data}
 
 @app.post("/api/upload/test")
-async def api_upload_test(item: Station):
+async def api_upload_test(item: element):
 
     station_name = item.station_name
     timestamp = item.timestamp if item.timestamp is not None else int(time.time())
@@ -123,6 +135,23 @@ async def api_upload_test(item: Station):
     )
 
     return {"status": status.HTTP_200_OK,"message": "upload success", "data": data}
+
+@app.get("/api/get/test")
+async def api_get_test(item: data):
+    file_name = f"{item.station_name}.csv"
+    df = pd.read_csv(f"./data/test/{file_name}", sep="|")
+    
+    if item.element == "all":
+        result = df[["station_name", "timestamp"] + list(df.columns[2:])].to_dict(orient="records")[-1]
+    else:
+        if item.element not in df.columns:
+            return {"status": status.HTTP_400_BAD_REQUEST, "message": "element not found", "data": None}
+        result = df[["station_name","timestamp", item.element]].to_dict(orient="records")[-1]
+        if not result:
+            return {"status": status.HTTP_404_NOT_FOUND, "message": "no data found", "data": None}    
+    
+    result = clean_nan_values(result)
+    return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
 
 if __name__ == "__main__":
     import uvicorn

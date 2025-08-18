@@ -15,7 +15,7 @@ def draw_last_hour(file_path,target_column, hours_back=24,sep='|',zone='Asia/Sha
 
     # 用户输入参数
     target_column = target_column  # 可修改为需要绘制的字段名
-    hours_back = 24               # 可修改为需要回溯的小时数
+    hours_back = hours_back               # 可修改为需要回溯的小时数
 
     # 计算时间范围
     latest_time = df['datetime'].max()
@@ -59,7 +59,7 @@ def draw_last_hour(file_path,target_column, hours_back=24,sep='|',zone='Asia/Sha
     plt.tight_layout()
     
     file_name = f"{target_column}_{hours_back}.png"
-    plt.savefig(file_name)
+    plt.savefig(f"./image/{file_name}")
 
 def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zone='Asia/Shanghai'):
 
@@ -132,7 +132,8 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
         file_name = f"{target_column}_{specific_date}.png"
     else:
         file_name = f"{target_column}_trend_last24h.png"
-    plt.savefig(file_name)
+    plt.savefig(f"./image/{file_name}")
 
 
-draw_last_hour("./data/test/Mplan's Station.csv","temperature",24,sep='|',zone='Asia/Shanghai')
+draw_last_hour("./data/test/esp32 test 2.csv","temperature",2,sep='|',zone='Asia/Shanghai')
+#draw_specific_day("./data/test/esp32 test.csv","temperature", specific_date="2025-8-18", sep='|', zone='Asia/Shanghai')
