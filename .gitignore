@@ -2,15 +2,10 @@
 .idea
 __pycache__
 
-data/station/*
-data/test/*
+data/*
 image/*
 logs/*
 
-!data/station/.gitkeep
-!data/test/.gitkeep
-!image/.gitkeep
-!logs/.gitkeep
 
 
 
