@@ -38,10 +38,11 @@ def draw_last_hour(file_path, target_column, hours_back, sep='|', zone='Asia/Sha
     if filtered_count < 5:
         use_all_data = True
         warning = f"数据量不足（{filtered_count}条）"
-    elif actual_span < hours_back:
+    
+    elif actual_span < hours_back * 0.95:
         use_all_data = True
         warning = f"时间跨度不足（仅{actual_span:.1f}小时，预期{hours_back}小时）"
-
+    
     if use_all_data:
         print(f"警告：{warning}，使用全部数据")
         plot_df = df.copy()
@@ -191,7 +192,7 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
         if filtered_count < 5:
             use_all_data = True
             warning = f"数据量不足（{filtered_count}条）"
-        elif actual_span < 24:
+        elif actual_span < 24 * 0.95:
             use_all_data = True
             warning = f"时间跨度不足（仅{actual_span:.1f}小时，预期24小时）"
 
@@ -265,8 +266,8 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
     plt.savefig(f"./image/{file_name}")
     plt.close()  # 关闭图表以释放内存
 
-specific_date = "2025-8-18"
-hour_back = 5
+specific_date = "2025-8-19"
+hour_back = 1
 
 print("----------------------------------")
 draw_specific_day("./data/test/esp32 test.csv","temperature",specific_date,sep='|',zone='Asia/Shanghai')
