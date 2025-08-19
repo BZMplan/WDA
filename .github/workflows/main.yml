@@ -27,10 +27,9 @@ jobs:
         pip install --upgrade pip
         pip install colorlog fastapi matplotlib pandas pydantic seaborn uvicorn
 
-    - name: Run tests
+    - name: Start FastAPI with timeout
       run: |
         source .venv/bin/activate
-        # 这里填入你的测试命令，比如 pytest 或直接运行脚本（根据你的项目实际情况）
-        # 例如运行主程序仅作为示范，通常应执行测试命令：
-        # pytest
-        python main.py
+        timeout 10s uvicorn main:app --host 0.0.0.0 --port 8080
+      
+        
