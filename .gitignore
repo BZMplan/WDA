@@ -1,7 +1,16 @@
 # 默认忽略的文件
-data
-image
 .idea
-draw_test.py
-logs/*
 __pycache__
+
+data/station/*
+data/test/*
+image/*
+logs/*
+
+!data/station/.gitkeep
+!data/test/.gitkeep
+!image/.gitkeep
+!logs/.gitkeep
+
+
+
