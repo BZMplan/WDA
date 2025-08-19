@@ -152,7 +152,7 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
             if filtered_count == 0:
                 use_all_data = True
                 warning = f"指定日期{specific_date}无任何数据"
-            elif actual_coverage < 12:  # 当天数据覆盖不足12小时
+            elif actual_coverage < 24 *0.95:
                 use_all_data = True
                 warning = f"指定日期数据覆盖不足（仅{actual_coverage:.1f}小时）"
             elif filtered_count < 5:
