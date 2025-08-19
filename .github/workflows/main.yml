@@ -12,7 +12,6 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.13.2"]
-
     steps:
     - uses: actions/checkout@v4
 
@@ -21,14 +20,17 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install uv
-      run: pip install uv
-      
     - name: Install dependencies
       run: |
-        uv venv -p python
-        uv pip install
-        
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
     - name: Run tests
       run: |
-        uv main.py
+        source .venv/bin/activate
+        # 这里填入你的测试命令，比如 pytest 或直接运行脚本（根据你的项目实际情况）
+        # 例如运行主程序仅作为示范，通常应执行测试命令：
+        # pytest
+        python main.py
