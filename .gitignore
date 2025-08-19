@@ -3,3 +3,5 @@ data
 image
 .idea
 draw_test.py
+logs/*
+__pycache__

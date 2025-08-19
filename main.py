@@ -1,13 +1,23 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.staticfiles import StaticFiles
 from pandas.io.common import file_exists
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel
 from typing import Optional
+import os
 import pandas as pd
 import time
 import math
+import threading
+import uuid
+import draw
+import logging
+import uvicorn
 
 app = FastAPI()
+
+app.mount("/image", StaticFiles(directory="image"), name="image")
 
 class element(BaseModel):
     station_name: Optional[str] = None  # 站点名称
@@ -22,7 +32,7 @@ class element(BaseModel):
     sunshine_duration: Optional[float] = None  # 日照时间
 
     class Config:
-        extra = Extra.ignore
+        extra = "ignore"
 
 class data(BaseModel):
     station_name:str
@@ -44,6 +54,17 @@ ALLOWED_TOKENS = {
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+one_time_tokens = {}
+
+def clean_expired_tokens():
+    while True:
+        time.sleep(60)  # 每分钟检查一次
+        current_time = time.time()
+        # 清理300秒（5分钟）前的令牌
+        expired_tokens = [t for t, (created_time, _) in one_time_tokens.items() if current_time - created_time > 300]
+        for token in expired_tokens:
+            del one_time_tokens[token]
+
 def verify_token(token: str = Depends(oauth2_scheme)):
     if token not in ALLOWED_TOKENS:
         raise HTTPException(
@@ -59,6 +80,8 @@ def clean_nan_values(data: dict) -> dict:
         key: None if isinstance(value, float) and math.isnan(value) else value
         for key, value in data.items()
     }
+
+threading.Thread(target=clean_expired_tokens, daemon=True).start()
 
 # 上传站点数据，需要token验证
 @app.post("/api/upload/station")
@@ -212,7 +235,42 @@ async def api_get_test(item: data):
         result = clean_nan_values(result)
         return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
 
-if __name__ == "__main__":
-    import uvicorn
+# 发送请求获取对应图片的url
+@app.get("/api/get/image")
+async def api_get_image(date:str, cls:str):
+    allowed_cls = ["temperature","pressure","relative_humidity"]
+    if cls in allowed_cls:
+        draw.draw_specific_day("./data/test/esp32 test.csv",f"{cls}",date,sep='|',zone='Asia/Shanghai')
 
-    uvicorn.run(app=app, host="0.0.0.0", port=80, workers=1)
+        token = str(uuid.uuid4())
+        resource_path = f"{cls}_{date}.png"
+        one_time_tokens[token] = (time.time(), resource_path)
+        return {"url":f"http://127.0.0.1/image?token={token}"}
+    else:
+        logger.warning(f"不支持的类型:{cls}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Not Support class:{cls}"
+        )
+        
+# 显示图片资源
+@app.get("/image")
+async def image(token:str):
+    if token not in one_time_tokens:
+        raise HTTPException(status_code=403, detail="URL无效或已被使用")
+    
+    created_time, resource_path = one_time_tokens.pop(token)
+    
+    if time.time() - created_time > 300:
+        raise HTTPException(status_code=403, detail="URL已过期")
+    
+    # 返回静态资源
+    return FileResponse(os.path.join("image", resource_path))
+
+if __name__ == "__main__":
+    
+    #启动服务端
+    
+    logger = logging.getLogger("uvicorn.app")
+    uvicorn.run(app=app, host="0.0.0.0", port=80, workers=1,log_config="./log_config.ini")
+    

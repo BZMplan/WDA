@@ -1,9 +1,12 @@
+from datetime import datetime, timedelta
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import time
-from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
 
 def draw_last_hour(file_path, target_column, hours_back, sep='|', zone='Asia/Shanghai'):
     # 读取CSV数据
@@ -44,7 +47,7 @@ def draw_last_hour(file_path, target_column, hours_back, sep='|', zone='Asia/Sha
         warning = f"时间跨度不足（仅{actual_span:.1f}小时，预期{hours_back}小时）"
     
     if use_all_data:
-        print(f"警告：{warning}，使用全部数据")
+        logger.warning(f"{warning}，使用全部数据")
         plot_df = df.copy()
         title_suffix = f"in Last {actual_span:.1f} Hours"
     else:
@@ -109,7 +112,6 @@ def draw_last_hour(file_path, target_column, hours_back, sep='|', zone='Asia/Sha
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches='tight')
     plt.close()
 
-
 def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zone='Asia/Shanghai'):    
     # 读取CSV数据
     df = pd.read_csv(file_path, sep=sep)
@@ -160,13 +162,13 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
                 warning = f"指定日期数据量过少（仅{filtered_count}条）"
             
             if use_all_data:
-                print(f"警告：{warning}，将使用全部数据")
+                logger.warning(f"{warning}，将使用全部数据")
                 plot_df = time_filtered.copy()
                 title_suffix = f"{specific_date} Using All Data"
             
             
         except Exception as e:
-            print(f"日期格式错误: {e}，将使用最近24小时数据")
+            logger.warning(f"日期格式错误: {e}，将使用最近24小时数据")
             specific_date = None  # 出错时使用默认逻辑
     
     # 如果未指定日期或日期格式错误，使用最近24小时数据
@@ -197,7 +199,7 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
             warning = f"时间跨度不足（仅{actual_span:.1f}小时，预期24小时）"
 
         if use_all_data:
-            print(f"警告：{warning}，使用全部数据")
+            logger.warning(f"{warning}，使用全部数据")
             plot_df = df.copy()
             title_suffix = "Using All Data"
         else:
@@ -265,16 +267,3 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
         file_name = f"{target_column}_24.png"
     plt.savefig(f"./image/{file_name}")
     plt.close()  # 关闭图表以释放内存
-
-specific_date = "2025-8-19"
-hour_back = 1
-
-print("----------------------------------")
-draw_specific_day("./data/test/esp32 test.csv","temperature",specific_date,sep='|',zone='Asia/Shanghai')
-draw_specific_day("./data/test/esp32 test.csv","relative_humidity",specific_date,sep='|',zone='Asia/Shanghai')
-draw_specific_day("./data/test/esp32 test.csv","pressure",specific_date,sep='|',zone='Asia/Shanghai')
-print("----------------------------------")
-draw_last_hour("./data/test/esp32 test.csv","temperature",hour_back,sep='|',zone='Asia/Shanghai')
-draw_last_hour("./data/test/esp32 test.csv","relative_humidity",hour_back,sep='|',zone='Asia/Shanghai')
-draw_last_hour("./data/test/esp32 test.csv","pressure",hour_back,sep='|',zone='Asia/Shanghai')
-#draw_specific_day("./data/test/esp32 test.csv","temperature", specific_date="2025-8-18", sep='|', zone='Asia/Shanghai')
