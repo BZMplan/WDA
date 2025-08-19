@@ -58,12 +58,17 @@ one_time_tokens = {}
 
 def clean_expired_tokens():
     while True:
-        time.sleep(60)  # 每分钟检查一次
+        time.sleep(10)  # 每10秒检查一次
         current_time = time.time()
-        # 清理300秒（5分钟）前的令牌
-        expired_tokens = [t for t, (created_time, _) in one_time_tokens.items() if current_time - created_time > 300]
+        # 清理120秒（2分钟）前的令牌
+        expired_tokens = [t for t, (created_time, _) in one_time_tokens.items() if current_time - created_time > 120]
         for token in expired_tokens:
+            # 删除token和对应的文件
+            _ , resource_path = one_time_tokens[token]
+            os.remove(os.path.join("image",resource_path))
+            logger.info(f"图片'{os.path.join("image",resource_path)}'过期，已删除")
             del one_time_tokens[token]
+            
 
 def verify_token(token: str = Depends(oauth2_scheme)):
     if token not in ALLOWED_TOKENS:
@@ -237,21 +242,36 @@ async def api_get_test(item: data):
 
 # 发送请求获取对应图片的url
 @app.get("/api/get/image")
-async def api_get_image(date:str, cls:str):
+async def api_get_image(mode,param,cls:str):
     allowed_cls = ["temperature","pressure","relative_humidity"]
-    if cls in allowed_cls:
-        draw.draw_specific_day("./data/test/esp32 test.csv",f"{cls}",date,sep='|',zone='Asia/Shanghai')
-
-        token = str(uuid.uuid4())
-        resource_path = f"{cls}_{date}.png"
-        one_time_tokens[token] = (time.time(), resource_path)
-        return {"url":f"http://127.0.0.1/image?token={token}"}
-    else:
-        logger.warning(f"不支持的类型:{cls}")
+    if mode == 'date': 
+        if cls in allowed_cls:
+            resource_path = draw.draw_specific_day("./data/test/esp32 test.csv",f"{cls}",param,sep='|',zone='Asia/Shanghai')
+            token = str(uuid.uuid4())
+            one_time_tokens[token] = (time.time(), resource_path)
+            return {"url":f"http://127.0.0.1/image?token={token}"}
+        else:
+            logger.warning(f"不支持的类型:{cls}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Not Support class:{cls}"
+            )
+    elif mode == 'hour':
+        if cls in allowed_cls:
+            resource_path = draw.draw_last_hour("./data/test/esp32 test.csv",f"{cls}",float(param),sep='|',zone='Asia/Shanghai')
+            token = str(uuid.uuid4())
+            one_time_tokens[token] = (time.time(),resource_path)
+            return {"url":f"http://127.0.0.1/image?token={token}"}
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Not Support class:{cls}"
-        )
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Not Support class:{cls}"
+            )
+    else:
+        logger.error("Wrong Type!")
+        raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Wrong Mode: {mode}, need 'date' or 'hour'"
+            )
         
 # 显示图片资源
 @app.get("/image")
@@ -259,14 +279,13 @@ async def image(token:str):
     if token not in one_time_tokens:
         raise HTTPException(status_code=403, detail="URL无效或已被使用")
     
-    created_time, resource_path = one_time_tokens.pop(token)
+    created_time, resource_path = one_time_tokens[token]
     
-    if time.time() - created_time > 300:
+    if time.time() - created_time > 120:
         raise HTTPException(status_code=403, detail="URL已过期")
     
     # 返回静态资源
     return FileResponse(os.path.join("image", resource_path))
-
 if __name__ == "__main__":
     
     #启动服务端

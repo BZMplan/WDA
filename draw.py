@@ -111,6 +111,8 @@ def draw_last_hour(file_path, target_column, hours_back, sep='|', zone='Asia/Sha
     file_name = f"{target_column}_last_{actual_span:.1f}.png"
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches='tight')
     plt.close()
+    
+    return file_name
 
 def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zone='Asia/Shanghai'):    
     # 读取CSV数据
@@ -154,7 +156,7 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
             if filtered_count == 0:
                 use_all_data = True
                 warning = f"指定日期{specific_date}无任何数据"
-            elif actual_coverage < 24 *0.95:
+            elif actual_coverage < 24 *0.9:
                 use_all_data = True
                 warning = f"指定日期数据覆盖不足（仅{actual_coverage:.1f}小时）"
             elif filtered_count < 5:
@@ -194,7 +196,7 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
         if filtered_count < 5:
             use_all_data = True
             warning = f"数据量不足（{filtered_count}条）"
-        elif actual_span < 24 * 0.95:
+        elif actual_span < 24 * 0.9:
             use_all_data = True
             warning = f"时间跨度不足（仅{actual_span:.1f}小时，预期24小时）"
 
@@ -266,4 +268,6 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
     else:
         file_name = f"{target_column}_24.png"
     plt.savefig(f"./image/{file_name}")
-    plt.close()  # 关闭图表以释放内存
+    plt.close() 
+    
+    return file_name
