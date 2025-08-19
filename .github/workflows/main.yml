@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build:
@@ -12,25 +12,24 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.13.2"]
-
     steps:
     - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
-      # with:
-      #   python-version: ${{ matrix.python-version }}
+      with:
+        python-version: ${{ matrix.python-version }}
 
-    - name: Install uv
-      run: pip install uv
-      
     - name: Install dependencies
       run: |
-        uv venv -p python  # 创建虚拟环境
+        python -m venv .venv
         source .venv/bin/activate
-        uv pip install
-        
-    - name: Run tests
+        pip install --upgrade pip
+        pip install colorlog fastapi matplotlib pandas pydantic seaborn uvicorn
+
+    - name: Start FastAPI with timeout
       run: |
-        source .venv/Scripts/activate
-        uv run main.py
+        source .venv/bin/activate
+        timeout 10s uvicorn main:app --host 0.0.0.0 --port 8080
+      
+        

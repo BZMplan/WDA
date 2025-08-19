@@ -272,5 +272,5 @@ if __name__ == "__main__":
     #启动服务端
     
     logger = logging.getLogger("uvicorn.app")
-    uvicorn.run(app=app, host="0.0.0.0", port=80, workers=1,log_config="./log_config.ini")
+    uvicorn.run(app=app, host="0.0.0.0", port=8080, workers=1,log_config="./log_config.ini")
     
