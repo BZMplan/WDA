@@ -36,7 +36,7 @@ def draw_last_hour(file_path, target_column, hours_back, sep='|', zone='Asia/Sha
     else:
         actual_span = 0
 
-    # 检查条件：数据量足够但时间跨度不足（小于预期的50%）
+    # 检查条件：数据量足够但时间跨度不足
     use_all_data = False
     if filtered_count < 5:
         use_all_data = True
@@ -189,7 +189,7 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
         else:
             actual_span = 0
 
-        # 检查条件：数据量足够但时间跨度不足（小于预期的50%）
+        # 检查条件：数据量足够但时间跨度不足
         use_all_data = False
         if filtered_count < 5:
             use_all_data = True
