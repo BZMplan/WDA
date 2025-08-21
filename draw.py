@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 import os
 from matplotlib import dates
 from matplotlib.ticker import FuncFormatter
@@ -7,6 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import logging
+import datetime
+from datetime import datetime, timedelta
 
 logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
 
@@ -300,14 +301,12 @@ def draw_last_hour_pro(database,station_name,columns=[],hours_back=24,sep='|',zo
     elif database == "official":
         today_data = f"./data/official/{station_name}_{today}.csv"
         yesterday_data = f"./data/official/{station_name}_{yesterday}.csv" if os.path.exists(f"./data/official/{station_name}_{yesterday}.csv") else None
-    
     # 读取数据
     if yesterday_data:
     
-        today_df = pd.read_csv(today_data, sep=sep,skiprows=1)
+        today_df = pd.read_csv(today_data, sep=sep)
         yesterday_df = pd.read_csv(yesterday_data, sep=sep)
         df = pd.concat([yesterday_df, today_df], ignore_index=True)     
-    
     else:
         df = pd.read_csv(today_data, sep=sep)
     
@@ -337,6 +336,7 @@ def draw_last_hour_pro(database,station_name,columns=[],hours_back=24,sep='|',zo
 
     # 检查条件：数据量足够但时间跨度不足
     use_all_data = False
+    warning = ""
     
     if filtered_count < 5:
         use_all_data = True
@@ -446,7 +446,7 @@ def draw_last_hour_pro(database,station_name,columns=[],hours_back=24,sep='|',zo
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches='tight')
     plt.close()
     logger.info(f"图片'./image/{file_name}'已生成")
-    return file_name
+    return file_name,warning
 
 def draw_specific_day_pro(database,station_name,columns=[],specific_date=None,sep='|',zone='Asia/Shanghai'):
     
@@ -468,7 +468,7 @@ def draw_specific_day_pro(database,station_name,columns=[],specific_date=None,se
     # 读取数据
     if yesterday_data:
     
-        today_df = pd.read_csv(today_data, sep=sep,skiprows=1)
+        today_df = pd.read_csv(today_data, sep=sep)
         yesterday_df = pd.read_csv(yesterday_data, sep=sep)
         df = pd.concat([yesterday_df, today_df], ignore_index=True)     
     
@@ -626,9 +626,9 @@ def draw_specific_day_pro(database,station_name,columns=[],specific_date=None,se
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches='tight')
     plt.close()
     logger.info(f"图片'./image/{file_name}'已生成")
-    return file_name
+    return file_name,warning
 
 
 # Test Code
-#draw_last_hour_pro("./data/test/esp32 test.csv",["temperature","pressure","relative_humidity"])
+#draw_last_hour_pro("test","station_2",["temperature","pressure","relative_humidity"],1)
 #draw_specific_day_pro("test","station_2",["temperature","pressure","relative_humidity"],"2025-08-21")
