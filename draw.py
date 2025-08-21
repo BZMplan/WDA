@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 from matplotlib import dates
 from matplotlib.ticker import FuncFormatter
 import pandas as pd
@@ -20,7 +21,8 @@ params = [
         ('sunshine_duration','Sunshine Duration','h','black')
     ]
 
-date_format = dates.DateFormatter('%y-%m-%d %H:%M',tz='Asia/Shanghai')
+# 将x轴的时间格式化为月-日 时:分
+date_format = dates.DateFormatter('%m-%d %H:%M',tz='Asia/Shanghai')
 
 def draw_last_hour(file_path, target_column, hours_back, sep='|', zone='Asia/Shanghai'):
     # 读取CSV数据
@@ -286,10 +288,29 @@ def draw_specific_day(file_path, target_column, specific_date=None, sep='|', zon
     
     return file_name
 
-def draw_last_hour_pro(file_path,columns=[],hours_back=24,sep='|',zone='Asia/Shanghai'):
-    # 读取CSV数据
-    df = pd.read_csv(file_path, sep=sep)
-
+def draw_last_hour_pro(database,station_name,columns=[],hours_back=24,sep='|',zone='Asia/Shanghai'):
+    
+    today = datetime.now().strftime('%Y-%m-%d')
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    
+    # 合并数据
+    if database == "test":
+        today_data = f"./data/test/{station_name}_{today}.csv"
+        yesterday_data = f"./data/test/{station_name}_{yesterday}.csv" if os.path.exists(f"./data/test/{station_name}_{yesterday}.csv") else None
+    elif database == "official":
+        today_data = f"./data/official/{station_name}_{today}.csv"
+        yesterday_data = f"./data/official/{station_name}_{yesterday}.csv" if os.path.exists(f"./data/official/{station_name}_{yesterday}.csv") else None
+    
+    # 读取数据
+    if yesterday_data:
+    
+        today_df = pd.read_csv(today_data, sep=sep,skiprows=1)
+        yesterday_df = pd.read_csv(yesterday_data, sep=sep)
+        df = pd.concat([yesterday_df, today_df], ignore_index=True)     
+    
+    else:
+        df = pd.read_csv(today_data, sep=sep)
+    
     # 转换时间戳为可读格式并指定时区
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert(zone)
     df.sort_values('datetime', inplace=True)
@@ -424,13 +445,37 @@ def draw_last_hour_pro(file_path,columns=[],hours_back=24,sep='|',zone='Asia/Sha
     file_name = f"{'_'.join([f'{param}' for param,_,_,_ in plot_params])}_last_{actual_span:.1f}.png"
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches='tight')
     plt.close()
-    
+    logger.info(f"图片'./image/{file_name}'已生成")
     return file_name
 
-def draw_specific_day_pro(file_path,columns=[],specific_date=None,sep='|',zone='Asia/Shanghai'):
-    # 读取CSV数据
-    df = pd.read_csv(file_path, sep=sep)
+def draw_specific_day_pro(database,station_name,columns=[],specific_date=None,sep='|',zone='Asia/Shanghai'):
+    
+    if specific_date is None:
+        today = datetime.now().strftime('%Y-%m-%d')
+        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    else:
+        today = specific_date
+        yesterday = (pd.to_datetime(specific_date) - timedelta(days=1)).strftime('%Y-%m-%d')
+    
+    # 合并数据
+    if database == "test":
+        today_data = f"./data/test/{station_name}_{today}.csv"
+        yesterday_data = f"./data/test/{station_name}_{yesterday}.csv" if os.path.exists(f"./data/test/{station_name}_{yesterday}.csv") else None
+    elif database == "official":
+        today_data = f"./data/official/{station_name}_{today}.csv"
+        yesterday_data = f"./data/official/{station_name}_{yesterday}.csv" if os.path.exists(f"./data/official/{station_name}_{yesterday}.csv") else None
+    
+    # 读取数据
+    if yesterday_data:
+    
+        today_df = pd.read_csv(today_data, sep=sep,skiprows=1)
+        yesterday_df = pd.read_csv(yesterday_data, sep=sep)
+        df = pd.concat([yesterday_df, today_df], ignore_index=True)     
+    
+    else:
+        df = pd.read_csv(today_data, sep=sep)
 
+    
     # 转换时间戳为可读格式并指定时区
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert(zone)
     df.sort_values('datetime', inplace=True)
@@ -503,8 +548,7 @@ def draw_specific_day_pro(file_path,columns=[],specific_date=None,sep='|',zone='
             for i,(k,_,_,_) in enumerate(params):
                 if column == k:
                     plot_params.append(params[i])
-    
-     
+        
     # 创建子图
     fig, axes = plt.subplots(len(plot_params), 1, figsize=(12, 5*len(plot_params)), sharex=True)
 
@@ -581,10 +625,10 @@ def draw_specific_day_pro(file_path,columns=[],specific_date=None,sep='|',zone='
     file_name = f"{'_'.join([f'{param}' for param,_,_,_ in plot_params])}_{specific_date}.png"
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches='tight')
     plt.close()
-    
+    logger.info(f"图片'./image/{file_name}'已生成")
     return file_name
 
 
 # Test Code
 #draw_last_hour_pro("./data/test/esp32 test.csv",["temperature","pressure","relative_humidity"])
-#draw_specific_day_pro("./data/test/esp32 test.csv",["temperature","pressure","relative_humidity"])
+#draw_specific_day_pro("test","station_2",["temperature","pressure","relative_humidity"],"2025-08-21")

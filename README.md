@@ -28,7 +28,7 @@
 ```
 .
 ├── data/
-│   ├── station/        # 存放上传的站点数据CSV文件
+│   ├── official/        # 存放上传的站点数据CSV文件
 │   └── test/           # 测试数据目录
 ├── image/              # 生成的图片文件目录
 ├── draw.py             # 数据绘图脚本
@@ -75,7 +75,7 @@ uv run main.py
 
 - **上传气象数据（需Token）**
 
-  `POST /api/upload/station`
+  `POST /api/upload/official`
 
   请求Body示例：
 
@@ -96,7 +96,7 @@ uv run main.py
 
 - **查询气象数据（需Token）**
 
-  `GET /api/get/station`
+  `GET /api/get/official`
 
   查询参数：
 
