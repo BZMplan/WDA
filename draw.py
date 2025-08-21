@@ -439,6 +439,10 @@ def draw_specific_day_pro(file_path,columns=[],specific_date=None,sep='|',zone='
     df.replace('NULL', pd.NA, inplace=True)
 
     # 确定时间范围
+    # 如果没有提供指定日期，则使用当前日期
+    if not specific_date:
+        specific_date = datetime.now().strftime('%Y-%m-%d')  # 默认使用今天日期
+    
     if specific_date:
         # 处理指定日期
         try:
@@ -487,40 +491,8 @@ def draw_specific_day_pro(file_path,columns=[],specific_date=None,sep='|',zone='
             logger.warning(f"日期格式错误: {e}，将使用最近24小时数据")
             specific_date = None  # 出错时使用默认逻辑
         # 如果未指定日期或日期格式错误，使用最近24小时数据
-    if not specific_date:
-        latest_time = df['datetime'].max()
-        start_time = latest_time - timedelta(hours=24)
-        
-        time_filtered = df[df['datetime'] >= start_time]
-        title_suffix = "in Last 24 Hours"
-        
-        # 改进的判断逻辑：结合数据量和时间跨度
-        filtered_count = len(time_filtered)
-        total_count = len(df)
-
-        # 计算筛选数据的实际时间跨度（小时）
-        if filtered_count >= 2:  # 至少2条数据才能计算跨度
-            actual_span = (time_filtered['datetime'].max() - time_filtered['datetime'].min()).total_seconds() / 3600
-        else:
-            actual_span = 0
-
-        # 检查条件：数据量足够但时间跨度不足
-        use_all_data = False
-        if filtered_count < 5:
-            use_all_data = True
-            warning = f"数据量不足（{filtered_count}条）"
-        elif actual_span < 24 * 0.9:
-            use_all_data = True
-            warning = f"时间跨度不足（仅{actual_span:.1f}小时，预期24小时）"
-
-        if use_all_data:
-            logger.warning(f"{warning}，使用全部数据")
-            plot_df = df.copy()
-            title_suffix = "Using All Data"
-        else:
-            plot_df = time_filtered.copy()
     
-    # 如果有更多数据，也可以为每个参数创建单独的子图
+    # 筛选标签
     fig,axes = plt.subplots(3, 1, figsize=(12, 15), sharex=True)
     
     if columns == []:
@@ -605,7 +577,7 @@ def draw_specific_day_pro(file_path,columns=[],specific_date=None,sep='|',zone='
     
     # 设置子图距离上边框的位置
     plt.subplots_adjust(top=0.93)
-    
+
     file_name = f"{'_'.join([f'{param}' for param,_,_,_ in plot_params])}_{specific_date}.png"
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches='tight')
     plt.close()
@@ -615,4 +587,4 @@ def draw_specific_day_pro(file_path,columns=[],specific_date=None,sep='|',zone='
 
 # Test Code
 #draw_last_hour_pro("./data/test/esp32 test.csv",["temperature","pressure","relative_humidity"])
-#draw_specific_day_pro("./data/test/esp32 test.csv",["temperature","pressure","relative_humidity"],"2025-08-19")
+#draw_specific_day_pro("./data/test/esp32 test.csv",["temperature","pressure","relative_humidity"])
