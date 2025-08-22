@@ -1,12 +1,13 @@
+from typing import Optional
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
 import logging
 import math
 import os
 import threading
 import time
-from typing import Optional
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel
+
 
 logger = logging.getLogger("uvicorn.app")
 

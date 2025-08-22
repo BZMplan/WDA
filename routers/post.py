@@ -1,8 +1,9 @@
+from functions import tools
+from fastapi import APIRouter, Depends, status
 import os
 import time
-from fastapi import APIRouter, Depends, status
 import pandas as pd
-from functions import tools
+
 
 
 router = APIRouter(
@@ -51,7 +52,7 @@ async def api_upload_official(item: tools.element, token: str = Depends(tools.ve
     df.to_csv(
         f"./data/official/{file_name}",
         index=False,
-        header=not os.path.exit(f"./data/official/{file_name}"),
+        header=not os.path.exists(f"./data/official/{file_name}"),
         sep="|",
         mode="a",
     )
@@ -62,8 +63,6 @@ async def api_upload_official(item: tools.element, token: str = Depends(tools.ve
 # 上传站点数据到test，不需要token验证
 @router.post("/api/upload/test")
 async def api_upload_test(item: tools.element):
-    # 获取当前日期
-
     station_name = item.station_name
     timestamp = item.timestamp if item.timestamp is not None else int(time.time())
     temperature = item.temperature if item.temperature is not None else "NULL"
@@ -103,7 +102,7 @@ async def api_upload_test(item: tools.element):
     df.to_csv(
         f"./data/test/{file_name}",
         index=False,
-        header=not os.path.exit(f"./data/test/{file_name}"),
+        header=not os.path.exists(f"./data/test/{file_name}"),
         sep="|",
         mode="a",
     )
