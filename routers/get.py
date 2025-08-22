@@ -23,9 +23,12 @@ async def api_get_official(
     element: str = "all",
     token: str = Depends(tools.verify),
 ):
+    
+    day = time.strftime("%Y-%m-%d", time.localtime(timestamp)) if timestamp else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
+    file_name = f"{station_name}_{day}.csv"
+    
     # 未指定时间戳时，返回最新数据
     if timestamp is None:
-        file_name = f"{station_name}.csv"
         df = pd.read_csv(f"./data/official/{file_name}", sep="|")
 
         if element == "all":
@@ -49,7 +52,7 @@ async def api_get_official(
                     "data": None,
                 }
 
-        result = clean_nan_values(result)
+        result = tools.clean_nan_values(result)
         return {
             "status": status.HTTP_200_OK,
             "message": "query success",
@@ -57,7 +60,6 @@ async def api_get_official(
         }
     # 指定时间戳时，返回该时间戳的数据
     else:
-        file_name = f"{station_name}.csv"
         df = pd.read_csv(f"./data/official/{file_name}", sep="|")
 
         if element == "all":
@@ -98,9 +100,11 @@ async def api_get_official(
 @router.get("/api/get/test")
 async def api_get_test(station_name: str, timestamp: int = None, element: str = "all"):
 
+    day = time.strftime("%Y-%m-%d", time.localtime(timestamp)) if timestamp else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
+    file_name = f"{station_name}_{day}.csv"
+
     # 未指定时间戳时，返回最新数据
     if timestamp is None:
-        file_name = f"{station_name}.csv"
         df = pd.read_csv(f"./data/test/{file_name}", sep="|")
 
         if element == "all":
@@ -124,7 +128,7 @@ async def api_get_test(station_name: str, timestamp: int = None, element: str = 
                     "data": None,
                 }
 
-        result = clean_nan_values(result)
+        result = tools.clean_nan_values(result)
         return {
             "status": status.HTTP_200_OK,
             "message": "query success",
@@ -132,7 +136,6 @@ async def api_get_test(station_name: str, timestamp: int = None, element: str = 
         }
     # 指定时间戳时，返回该时间戳的数据
     else:
-        file_name = f"{station_name}.csv"
         df = pd.read_csv(f"./data/test/{file_name}", sep="|")
 
         if element == "all":
