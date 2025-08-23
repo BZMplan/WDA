@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, status
 import os
 import time
 import pandas as pd
-
+import routers.oauth 
 
 
 router = APIRouter(
@@ -12,7 +12,7 @@ router = APIRouter(
 
 # 上传站点数据，需要token验证
 @router.post("/api/upload/official")
-async def api_upload_official(item: tools.element, token: str = Depends(tools.verify)):
+async def api_upload_official(item: tools.element, token: str = Depends(routers.oauth.verify_user_status)):
     station_name = item.station_name
     timestamp = item.timestamp if item.timestamp is not None else int(time.time())
     temperature = item.temperature if item.temperature is not None else "NULL"

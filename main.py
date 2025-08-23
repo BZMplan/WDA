@@ -1,15 +1,20 @@
 from fastapi import FastAPI
-from routers import get,post
+from routers import get,post,oauth
+from functions import tools
 from fastapi.staticfiles import StaticFiles
 import logging
 import uvicorn
+import threading
+
 
 
 app = FastAPI()
 app.include_router(get.router)
 app.include_router(post.router)
+app.include_router(oauth.router)
 
 app.mount("/image", StaticFiles(directory="image"), name="image")
+threading.Thread(target=tools.clean_expired_image_tokens, daemon=True).start()
 
 if __name__ == "__main__":
 

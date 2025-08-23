@@ -8,7 +8,7 @@ import json
 import time
 import pandas as pd
 import os
-
+import routers.oauth
 
 router = APIRouter(
     tags=["get"],  # 在 OpenAPI 文档中为这些路由添加一个标签
@@ -21,7 +21,7 @@ async def api_get_official(
     station_name: str,
     timestamp: int = None,
     element: str = "all",
-    token: str = Depends(tools.verify),
+    token: str = Depends(routers.oauth.verify_user_status),
 ):
     
     day = time.strftime("%Y-%m-%d", time.localtime(timestamp)) if timestamp else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))

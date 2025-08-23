@@ -1,11 +1,8 @@
 from typing import Optional
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 import logging
 import math
 import os
-import threading
 import time
 
 
@@ -33,22 +30,22 @@ class data(BaseModel):
     element: str = "all"
 
 
-tokens = ["27ecb87a-1c4c-4b24-940d-2ad04b4dc5a7"]
+# tokens = ["27ecb87a-1c4c-4b24-940d-2ad04b4dc5a7"]
 
-oauth2_scheme = OAuth2PasswordBearer("")
+# oauth2_scheme = OAuth2PasswordBearer("token")
 
-
+# 后续将存贮在数据库里
 one_time_image_tokens = {}
 
 
-def verify(token: str = Depends(oauth2_scheme)):
-    if token not in tokens:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired tokens",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return token
+# def verify(token: str = Depends(oauth2_scheme)):
+#     if token not in tokens:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid or expired tokens",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#     return token
 
 
 def clean_expired_image_tokens():
@@ -78,4 +75,3 @@ def clean_nan_values(data: dict) -> dict:
     }
 
 
-threading.Thread(target=clean_expired_image_tokens, daemon=True).start()
