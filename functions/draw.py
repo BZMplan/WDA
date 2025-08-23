@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import logging
 import os
-
+import uuid
 logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
 
 
@@ -29,7 +29,6 @@ params = [
 def draw_last_hour_pro(
     database, station_name, columns=[], hours_back=24, sep="|", zone="Asia/Shanghai"
 ):
-
     today = datetime.now().strftime("%Y-%m-%d")
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -107,9 +106,7 @@ def draw_last_hour_pro(
     # 调整绘图所用数据的比例
     # frequency = int(total_count/120)
     # plot_df = plot_df.iloc[::frequency].copy()
-
-    plt.figure(figsize=(12, 8))
-
+    
     # 如果有更多数据，也可以为每个参数创建单独的子图
     fig, axes = plt.subplots(3, 1, figsize=(12, 15), sharex=True)
 
@@ -121,12 +118,13 @@ def draw_last_hour_pro(
             for i, (k, _, _, _) in enumerate(params):
                 if column == k:
                     plot_params.append(params[i])
-
-    # 创建子图
-    fig, axes = plt.subplots(
-        len(plot_params), 1, figsize=(12, 5 * len(plot_params)), sharex=True
-    )
-
+    if len(plot_params) > 1:
+        fig, axes = plt.subplots(
+            len(plot_params), 1, figsize=(12, 5 * len(plot_params)), sharex=True
+        )
+    else:
+        fig, axes = plt.subplots(len(plot_params), 1, figsize=(12, 9), sharex=True)
+        
     # 循环设置每个子图
     for i, (column, title, unit, color) in enumerate(plot_params):
         # 绘制折线图
@@ -152,13 +150,13 @@ def draw_last_hour_pro(
             axes[-1].xaxis.set_major_formatter(date_format)
 
             # 设置标题
-            fig.suptitle(
-                f"{' | '.join([f'{param}' for _,param,_,_ in plot_params])} Curve ({title_suffix})",
-                fontsize=16,
-            )
+            # fig.suptitle(
+            #     f"{' | '.join([f'{param}' for _,param,_,_ in plot_params])} Curve ({title_suffix})",
+            #     fontsize=16,
+            # )
+            fig.suptitle(f"Station:{station_name} Multi-element Curve ({title_suffix})",fontsize=16)
 
         elif len(plot_params) == 1:
-            fig, axes = plt.subplots(len(plot_params), 1, figsize=(12, 9), sharex=True)
             sns.lineplot(data=plot_df, x="datetime", y=column, ax=axes, color=color)
             # 设置标题
             axes.set_title(title)
@@ -180,7 +178,7 @@ def draw_last_hour_pro(
             axes.xaxis.set_major_formatter(date_format)
 
             # 设置标题
-            axes.set_title(f"{title} Curve ({title_suffix})", fontsize=16)
+            axes.set_title(f"Station:{station_name} {title} Curve ({title_suffix})", fontsize=16)
 
     # 旋转x轴标签
     # plt.xticks(rotation=45)
@@ -189,12 +187,14 @@ def draw_last_hour_pro(
 
     # 设置子图距离上边框的位置
     plt.subplots_adjust(top=0.93)
-
-    file_name = f"{'_'.join([f'{param}' for param,_,_,_ in plot_params])}_last_{actual_span:.1f}.png"
+    image_id = str(uuid.uuid4())
+    # file_name = f"{'_'.join([f'{param}' for param,_,_,_ in plot_params])}_last_{actual_span:.1f}_.png"
+    file_name = f"{image_id}.png"
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches="tight")
     plt.close()
+    plt.cla()
     logger.info(f"图片'./image/{file_name}'已生成")
-    return file_name, warning
+    return file_name, warning, image_id
 
 
 # 绘制自定义日期的图像
@@ -207,6 +207,7 @@ def draw_specific_day_pro(
     zone="Asia/Shanghai",
 ):
 
+    
     if specific_date is None:
         today = datetime.now().strftime("%Y-%m-%d")
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -304,7 +305,7 @@ def draw_specific_day_pro(
             if use_all_data:
                 logger.warning(f"{warning}，将使用全部数据")
                 plot_df = time_filtered.copy()
-                title_suffix = f"{specific_date} Using All Data"
+                title_suffix = f"{specific_date} Use All Data"
 
         except Exception as e:
             logger.warning(f"日期格式错误: {e}，将使用最近24小时数据")
@@ -315,9 +316,6 @@ def draw_specific_day_pro(
     # frequency = int(total_count/120)
     # plot_df = plot_df.iloc[::frequency].copy()
 
-    # 筛选标签
-    fig, axes = plt.subplots(3, 1, figsize=(12, 15), sharex=True)
-
     if columns == []:
         plot_params = params
     else:
@@ -327,15 +325,16 @@ def draw_specific_day_pro(
                 if column == k:
                     plot_params.append(params[i])
 
-    # 创建子图
-    fig, axes = plt.subplots(
-        len(plot_params), 1, figsize=(12, 5 * len(plot_params)), sharex=True
-    )
-
+    if len(plot_params) > 1:
+        fig, axes = plt.subplots(
+                    len(plot_params), 1, figsize=(12, 5 * len(plot_params)), sharex=True
+                )
+    else:
+        fig, axes = plt.subplots(len(plot_params), 1, figsize=(12, 9), sharex=True)
     # 循环设置每个子图
     for i, (column, title, unit, color) in enumerate(plot_params):
-        # 绘制折线图
         if len(plot_params) > 1:
+            # 绘制折线图
             sns.lineplot(data=plot_df, x="datetime", y=column, ax=axes[i], color=color)
             # 设置标题
             axes[i].set_title(title)
@@ -357,13 +356,13 @@ def draw_specific_day_pro(
             axes[-1].xaxis.set_major_formatter(date_format)
 
             # 设置标题
-            fig.suptitle(
-                f"{' | '.join([f'{param}' for _,param,_,_ in plot_params])} Curve ({title_suffix})",
-                fontsize=16,
-            )
-
+            # fig.suptitle(
+            #     f"{' | '.join([f'{param}' for _,param,_,_ in plot_params])} Curve ({title_suffix})",
+            #     fontsize=16,
+            # )
+            fig.suptitle(f"Station:{station_name} Multi-element Curve ({title_suffix})",fontsize=16)
+            
         elif len(plot_params) == 1:
-            fig, axes = plt.subplots(len(plot_params), 1, figsize=(12, 9), sharex=True)
             sns.lineplot(data=plot_df, x="datetime", y=column, ax=axes, color=color)
             # 设置标题
             axes.set_title(title)
@@ -385,7 +384,7 @@ def draw_specific_day_pro(
             axes.xaxis.set_major_formatter(date_format)
 
             # 设置标题
-            axes.set_title(f"{title} Curve ({title_suffix})", fontsize=16)
+            axes.set_title(f"Station{station_name} {title} Curve ({title_suffix})", fontsize=16)
 
     # 旋转x轴标签
     # plt.xticks(rotation=45)
@@ -394,14 +393,16 @@ def draw_specific_day_pro(
 
     # 设置子图距离上边框的位置
     plt.subplots_adjust(top=0.93)
-
-    file_name = (
-        f"{'_'.join([f'{param}' for param,_,_,_ in plot_params])}_{specific_date}.png"
-    )
+    image_id = str(uuid.uuid4())
+    # file_name = (
+    #     f"{'_'.join([f'{param}' for param,_,_,_ in plot_params])}_{specific_date}.png"
+    # )
+    file_name = f"{image_id}.png"
     plt.savefig(f"./image/{file_name}", dpi=300, bbox_inches="tight")
     plt.close()
+    plt.cla()
     logger.info(f"图片'./image/{file_name}'已生成")
-    return file_name, warning
+    return file_name, warning, image_id
 
 
 # Test Code

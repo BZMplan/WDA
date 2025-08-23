@@ -214,26 +214,28 @@ async def api_get_image(
             datetime.strptime(param, "%Y-%m-%d") if isinstance(param, str) else param
         ).strftime("%Y-%m-%d")
 
-        file_name, info = draw.draw_specific_day_pro(
+        file_name, info, image_id = draw.draw_specific_day_pro(
             database, station_name, column, param, sep="|", zone="Asia/Shanghai"
         )
         image_token = str(uuid.uuid4())
         tools.one_time_image_tokens[image_token] = (time.time(), file_name)
         return {
             "url": f"http://127.0.0.1/image?image_token={image_token}",
-            "info": info,
+            "image_id":image_id,
+            "info": info
         }
     elif mode == "hour":
         param = int(param) if not isinstance(param, int) else param
 
-        file_name, info = draw.draw_last_hour_pro(
+        file_name, info, image_id = draw.draw_last_hour_pro(
             database, station_name, column, param, sep="|", zone="Asia/Shanghai"
         )
         image_token = str(uuid.uuid4())
         tools.one_time_image_tokens[image_token] = (time.time(), file_name)
         return {
             "url": f"http://127.0.0.1/image?image_token={image_token}",
-            "info": info,
+            "image_id":image_id,
+            "info": info
         }
     else:
         logger.error(f"Wrong Mode: {mode}, need 'date' or 'hour'")
