@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, logger, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import FileResponse
 from typing import Union
 from functions import tools,draw
@@ -9,11 +9,15 @@ import time
 import pandas as pd
 import os
 import routers.oauth
+import logging
 
+# 设置路由
 router = APIRouter(
     tags=["get"],  # 在 OpenAPI 文档中为这些路由添加一个标签
 )
 
+# 初始化日志
+logger = logging.getLogger("uvicorn.app")
 
 # 获取站点数据，需要token验证
 @router.get("/api/get/official")
