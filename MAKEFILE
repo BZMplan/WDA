@@ -1,0 +1,56 @@
+# 项目名称
+APP_NAME = myapp
+SCRIPT_NAME = main.py
+
+# 打包选项
+PYINSTALLER_OPTS = --onefile --noconsole
+HIDDEN_IMPORTS = colorlog
+DATA_FILES = log_config.ini
+
+# 构建目录
+BUILD_DIR = build
+DIST_DIR = dist
+SPEC_DIR = .
+
+.PHONY: all build clean distclean run
+
+all: build
+
+# 构建可执行文件
+build:
+	@echo "正在打包 $(APP_NAME)..."
+	pyinstaller \
+		--name $(APP_NAME) \
+		$(PYINSTALLER_OPTS) \
+		$(addprefix --hidden-import , $(HIDDEN_IMPORTS)) \
+		$(addprefix --add-data , $(join $(DATA_FILES), ";.")) \
+		$(SCRIPT_NAME)
+	@echo "打包完成！可执行文件在 ./dist/ 目录中"
+
+# 使用 spec 文件构建（如果已有 spec 文件）
+build-spec:
+	pyinstaller $(APP_NAME).spec
+
+# 清理构建文件
+clean:
+	rm -rf $(BUILD_DIR) $(SPEC_DIR)/$(APP_NAME).spec
+	@echo "已清理构建文件"
+
+# 完全清理（包括dist目录）
+distclean: clean
+	rm -rf $(DIST_DIR)
+	@echo "已完全清理"
+
+# 运行打包后的程序
+run:
+	./$(DIST_DIR)/$(APP_NAME)
+
+# 显示帮助信息
+help:
+	@echo "可用命令:"
+	@echo "  make build      - 打包应用程序"
+	@echo "  make build-spec - 使用 spec 文件打包"
+	@echo "  make run        - 运行打包后的程序"
+	@echo "  make clean      - 清理构建文件"
+	@echo "  make distclean  - 完全清理"
+	@echo "  make help       - 显示此帮助信息"

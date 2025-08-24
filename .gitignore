@@ -6,6 +6,5 @@ data/*
 image/*
 logs/*
 
-
-
-
+dist
+build
