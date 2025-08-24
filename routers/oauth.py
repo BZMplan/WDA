@@ -4,6 +4,7 @@ from fastapi import Depends,HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
+# 设置路由
 router = APIRouter(
     tags=["oauth"]
 )
