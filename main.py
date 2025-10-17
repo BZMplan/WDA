@@ -26,5 +26,5 @@ if __name__ == "__main__":
     log_config_path = init.setup_log_config()
     
     uvicorn.run(
-        app=app, host="0.0.0.0", port=81, workers=1, log_config=log_config_path
+        app=app, host="0.0.0.0", port=7763, workers=1, log_config=log_config_path
     )

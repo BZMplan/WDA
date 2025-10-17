@@ -384,7 +384,7 @@ def draw_specific_day_pro(
             axes.xaxis.set_major_formatter(date_format)
 
             # 设置标题
-            axes.set_title(f"Station{station_name} {title} Curve ({title_suffix})", fontsize=16)
+            axes.set_title(f"Station:{station_name} {title} Curve ({title_suffix})", fontsize=16)
 
     # 旋转x轴标签
     # plt.xticks(rotation=45)

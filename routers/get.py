@@ -224,7 +224,7 @@ async def api_get_image(
         image_token = str(uuid.uuid4())
         tools.one_time_image_tokens[image_token] = (time.time(), file_name)
         return {
-            "url": f"http://127.0.0.1/image?image_token={image_token}",
+            "url": f"http://127.0.0.1:7763/image?image_token={image_token}",
             "image_id":image_id,
             "info": info
         }
@@ -237,7 +237,7 @@ async def api_get_image(
         image_token = str(uuid.uuid4())
         tools.one_time_image_tokens[image_token] = (time.time(), file_name)
         return {
-            "url": f"http://127.0.0.1/image?image_token={image_token}",
+            "url": f"http://127.0.0.1:7763/image?image_token={image_token}",
             "image_id":image_id,
             "info": info
         }
