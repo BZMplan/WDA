@@ -7,6 +7,7 @@ import seaborn as sns
 import logging
 import os
 import uuid
+
 logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
 
 
@@ -27,26 +28,18 @@ params = [
 
 # 绘制自定义小时前的图像
 def draw_last_hour_pro(
-    database, station_name, columns=[], hours_back=24, sep="|", zone="Asia/Shanghai"
+    station_name, columns=[], hours_back=24, sep="|", zone="Asia/Shanghai"
 ):
     today = datetime.now().strftime("%Y-%m-%d")
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    # 合并数据
-    if database == "test":
-        today_data = f"./data/test/{station_name}_{today}.csv"
-        yesterday_data = (
-            f"./data/test/{station_name}_{yesterday}.csv"
-            if os.path.exists(f"./data/test/{station_name}_{yesterday}.csv")
-            else None
-        )
-    elif database == "official":
-        today_data = f"./data/official/{station_name}_{today}.csv"
-        yesterday_data = (
-            f"./data/official/{station_name}_{yesterday}.csv"
-            if os.path.exists(f"./data/official/{station_name}_{yesterday}.csv")
-            else None
-        )
+    today_data = f"./data/{station_name}_{today}.csv"
+    yesterday_data = (
+        f"./data/{station_name}_{yesterday}.csv"
+        if os.path.exists(f"./data/{station_name}_{yesterday}.csv")
+        else None
+    )
+
     # 读取数据
     if yesterday_data:
 
@@ -106,7 +99,7 @@ def draw_last_hour_pro(
     # 调整绘图所用数据的比例
     # frequency = int(total_count/120)
     # plot_df = plot_df.iloc[::frequency].copy()
-    
+
     # 如果有更多数据，也可以为每个参数创建单独的子图
     fig, axes = plt.subplots(3, 1, figsize=(12, 15), sharex=True)
 
@@ -124,7 +117,7 @@ def draw_last_hour_pro(
         )
     else:
         fig, axes = plt.subplots(len(plot_params), 1, figsize=(12, 9), sharex=True)
-        
+
     # 循环设置每个子图
     for i, (column, title, unit, color) in enumerate(plot_params):
         # 绘制折线图
@@ -154,7 +147,10 @@ def draw_last_hour_pro(
             #     f"{' | '.join([f'{param}' for _,param,_,_ in plot_params])} Curve ({title_suffix})",
             #     fontsize=16,
             # )
-            fig.suptitle(f"Station:{station_name} Multi-element Curve ({title_suffix})",fontsize=16)
+            fig.suptitle(
+                f"Station:{station_name} Multi-element Curve ({title_suffix})",
+                fontsize=16,
+            )
 
         elif len(plot_params) == 1:
             sns.lineplot(data=plot_df, x="datetime", y=column, ax=axes, color=color)
@@ -178,7 +174,9 @@ def draw_last_hour_pro(
             axes.xaxis.set_major_formatter(date_format)
 
             # 设置标题
-            axes.set_title(f"Station:{station_name} {title} Curve ({title_suffix})", fontsize=16)
+            axes.set_title(
+                f"Station:{station_name} {title} Curve ({title_suffix})", fontsize=16
+            )
 
     # 旋转x轴标签
     # plt.xticks(rotation=45)
@@ -207,7 +205,6 @@ def draw_specific_day_pro(
     zone="Asia/Shanghai",
 ):
 
-    
     if specific_date is None:
         today = datetime.now().strftime("%Y-%m-%d")
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -217,21 +214,12 @@ def draw_specific_day_pro(
             "%Y-%m-%d"
         )
 
-    # 合并数据
-    if database == "test":
-        today_data = f"./data/test/{station_name}_{today}.csv"
-        yesterday_data = (
-            f"./data/test/{station_name}_{yesterday}.csv"
-            if os.path.exists(f"./data/test/{station_name}_{yesterday}.csv")
-            else None
-        )
-    elif database == "official":
-        today_data = f"./data/official/{station_name}_{today}.csv"
-        yesterday_data = (
-            f"./data/official/{station_name}_{yesterday}.csv"
-            if os.path.exists(f"./data/official/{station_name}_{yesterday}.csv")
-            else None
-        )
+    today_data = f"./data/{station_name}_{today}.csv"
+    yesterday_data = (
+        f"./data/{station_name}_{yesterday}.csv"
+        if os.path.exists(f"./data/{station_name}_{yesterday}.csv")
+        else None
+    )
 
     # 读取数据
     if yesterday_data:
@@ -327,8 +315,8 @@ def draw_specific_day_pro(
 
     if len(plot_params) > 1:
         fig, axes = plt.subplots(
-                    len(plot_params), 1, figsize=(12, 5 * len(plot_params)), sharex=True
-                )
+            len(plot_params), 1, figsize=(12, 5 * len(plot_params)), sharex=True
+        )
     else:
         fig, axes = plt.subplots(len(plot_params), 1, figsize=(12, 9), sharex=True)
     # 循环设置每个子图
@@ -360,8 +348,11 @@ def draw_specific_day_pro(
             #     f"{' | '.join([f'{param}' for _,param,_,_ in plot_params])} Curve ({title_suffix})",
             #     fontsize=16,
             # )
-            fig.suptitle(f"Station:{station_name} Multi-element Curve ({title_suffix})",fontsize=16)
-            
+            fig.suptitle(
+                f"Station:{station_name} Multi-element Curve ({title_suffix})",
+                fontsize=16,
+            )
+
         elif len(plot_params) == 1:
             sns.lineplot(data=plot_df, x="datetime", y=column, ax=axes, color=color)
             # 设置标题
@@ -384,7 +375,9 @@ def draw_specific_day_pro(
             axes.xaxis.set_major_formatter(date_format)
 
             # 设置标题
-            axes.set_title(f"Station:{station_name} {title} Curve ({title_suffix})", fontsize=16)
+            axes.set_title(
+                f"Station:{station_name} {title} Curve ({title_suffix})", fontsize=16
+            )
 
     # 旋转x轴标签
     # plt.xticks(rotation=45)
@@ -406,5 +399,5 @@ def draw_specific_day_pro(
 
 
 # Test Code
-# draw_last_hour_pro("test", "station_2", ["temperature", "pressure", "relative_humidity"], 2)
-# draw_specific_day_pro("test","station_2",["temperature","pressure","relative_humidity"],"2025-08-21")
+# draw_last_hour_pro("station_2", ["temperature", "pressure", "relative_humidity"], 2)
+# draw_specific_day_pro("station_2",["temperature","pressure","relative_humidity"],"2025-08-21")

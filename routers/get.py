@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query
 from fastapi.responses import FileResponse
 from typing import Union
 from functions import tools,draw
@@ -8,7 +8,6 @@ import json
 import time
 import pandas as pd
 import os
-import routers.oauth
 import logging
 
 # 设置路由
@@ -19,21 +18,16 @@ router = APIRouter(
 # 初始化日志
 logger = logging.getLogger("uvicorn.app")
 
-# 获取站点数据，需要token验证
-@router.get("/api/get/official")
-async def api_get_official(
-    station_name: str,
-    timestamp: int = None,
-    element: str = "all",
-    token: str = Depends(routers.oauth.verify_user_status),
-):
-    
+# 获取站点数据
+@router.get("/api/get")
+async def api_get(station_name: str, timestamp: int = None, element: str = "all"):
+
     day = time.strftime("%Y-%m-%d", time.localtime(timestamp)) if timestamp else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
     file_name = f"{station_name}_{day}.csv"
-    
+
     # 未指定时间戳时，返回最新数据
     if timestamp is None:
-        df = pd.read_csv(f"./data/official/{file_name}", sep="|")
+        df = pd.read_csv(f"./data/{file_name}", sep="|")
 
         if element == "all":
             result = df[["station_name", "timestamp"] + list(df.columns[2:])].to_dict(
@@ -64,83 +58,7 @@ async def api_get_official(
         }
     # 指定时间戳时，返回该时间戳的数据
     else:
-        df = pd.read_csv(f"./data/official/{file_name}", sep="|")
-
-        if element == "all":
-            result = (
-                df[["station_name", "timestamp"] + list(df.columns[2:])]
-                .loc[df["timestamp"] == timestamp]
-                .to_dict(orient="records")[-1]
-            )
-        else:
-            if element not in df.columns:
-                return {
-                    "status": status.HTTP_400_BAD_REQUEST,
-                    "message": "element not found",
-                    "data": None,
-                }
-            result = (
-                df[["station_name", "timestamp", element]]
-                .loc[df["timestamp"] == timestamp]
-                .to_dict(orient="records")[-1]
-            )
-            if not result:
-                return {
-                    "status": status.HTTP_404_NOT_FOUND,
-                    "message": "no data found",
-                    "data": None,
-                }
-
-        result = tools.clean_nan_values(result)
-
-        return {
-            "status": status.HTTP_200_OK,
-            "message": "query success",
-            "data": result,
-        }
-
-
-# 获取站点数据从test，不需要token验证
-@router.get("/api/get/test")
-async def api_get_test(station_name: str, timestamp: int = None, element: str = "all"):
-
-    day = time.strftime("%Y-%m-%d", time.localtime(timestamp)) if timestamp else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
-    file_name = f"{station_name}_{day}.csv"
-
-    # 未指定时间戳时，返回最新数据
-    if timestamp is None:
-        df = pd.read_csv(f"./data/test/{file_name}", sep="|")
-
-        if element == "all":
-            result = df[["station_name", "timestamp"] + list(df.columns[2:])].to_dict(
-                orient="records"
-            )[-1]
-        else:
-            if element not in df.columns:
-                return {
-                    "status": status.HTTP_400_BAD_REQUEST,
-                    "message": "element not found",
-                    "data": None,
-                }
-            result = df[["station_name", "timestamp", element]].to_dict(
-                orient="records"
-            )[-1]
-            if not result:
-                return {
-                    "status": status.HTTP_404_NOT_FOUND,
-                    "message": "no data found",
-                    "data": None,
-                }
-
-        result = tools.clean_nan_values(result)
-        return {
-            "status": status.HTTP_200_OK,
-            "message": "query success",
-            "data": result,
-        }
-    # 指定时间戳时，返回该时间戳的数据
-    else:
-        df = pd.read_csv(f"./data/test/{file_name}", sep="|")
+        df = pd.read_csv(f"./data/{file_name}", sep="|")
 
         if element == "all":
             result = (
@@ -173,7 +91,6 @@ async def api_get_test(station_name: str, timestamp: int = None, element: str = 
             "message": "query success",
             "data": result,
         }
-
 
 # 发送请求获取对应图片的url
 @router.get("/api/get/image")

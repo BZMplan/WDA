@@ -27,9 +27,7 @@
 
 ```
 .
-├── data/
-│   ├── official/        # 存放上传的站点数据CSV文件
-│   └── test/           # 测试数据目录
+├── data/               # 存放站点数据
 ├── image/              # 生成的图片文件目录
 ├── draw.py             # 数据绘图脚本
 ├── main.py             # API主程序
@@ -73,9 +71,9 @@ uv run main.py
 
 ### API接口
 
-- **上传气象数据（需Token）**
+- **上传气象数据**
 
-  `POST /api/upload/official`
+  `POST /api/upload`
 
   请求Body示例：
 
@@ -94,9 +92,9 @@ uv run main.py
   }
   ```
 
-- **查询气象数据（需Token）**
+- **查询气象数据**
 
-  `GET /api/get/official`
+  `GET /api/get`
 
   查询参数：
 
@@ -121,7 +119,7 @@ uv run main.py
 ```
 from draw import draw_specific_day
 
-draw_specific_day("./data/test/esp32 test.csv", "temperature", "2025-08-19")
+draw_specific_day("./data/esp32 test.csv", "temperature", "2025-08-19")
 ```
 
 ---
