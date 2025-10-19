@@ -10,7 +10,6 @@ import uuid
 
 logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
 
-
 # 将x轴的时间格式化为月-日 时:分
 date_format = dates.DateFormatter("%m-%d %H:%M", tz="Asia/Shanghai")
 
@@ -197,7 +196,6 @@ def draw_last_hour_pro(
 
 # 绘制自定义日期的图像
 def draw_specific_day_pro(
-    database,
     station_name,
     columns=[],
     specific_date=None,

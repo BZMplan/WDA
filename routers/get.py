@@ -1,14 +1,15 @@
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
 from typing import Union
-from functions import tools,draw
+from functions import tools, draw
 import uuid
 import json
 import time
 import pandas as pd
 import os
 import logging
+import asyncio
 
 # 设置路由
 router = APIRouter(
@@ -18,11 +19,16 @@ router = APIRouter(
 # 初始化日志
 logger = logging.getLogger("uvicorn.app")
 
+
 # 获取站点数据
 @router.get("/api/get")
 async def api_get(station_name: str, timestamp: int = None, element: str = "all"):
 
-    day = time.strftime("%Y-%m-%d", time.localtime(timestamp)) if timestamp else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
+    day = (
+        time.strftime("%Y-%m-%d", time.localtime(timestamp))
+        if timestamp
+        else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
+    )
     file_name = f"{station_name}_{day}.csv"
 
     # 未指定时间戳时，返回最新数据
@@ -92,11 +98,11 @@ async def api_get(station_name: str, timestamp: int = None, element: str = "all"
             "data": result,
         }
 
+
 # 发送请求获取对应图片的url
 @router.get("/api/get/image")
 async def api_get_image(
     mode: str,
-    database: str,
     station_name: str,
     param: Union[int, str],
     columns: str = Query(...),
@@ -135,28 +141,42 @@ async def api_get_image(
             datetime.strptime(param, "%Y-%m-%d") if isinstance(param, str) else param
         ).strftime("%Y-%m-%d")
 
-        file_name, info, image_id = draw.draw_specific_day_pro(
-            database, station_name, column, param, sep="|", zone="Asia/Shanghai"
+        # 异步绘图，防止阻塞线程
+        file_name, info, image_id = await asyncio.to_thread(
+            draw.draw_specific_day_pro,
+            station_name,
+            column,
+            param,
+            sep="|",
+            zone="Asia/Shanghai",
         )
+
         image_token = str(uuid.uuid4())
         tools.one_time_image_tokens[image_token] = (time.time(), file_name)
         return {
             "url": f"http://127.0.0.1:7763/image?image_token={image_token}",
-            "image_id":image_id,
-            "info": info
+            "image_id": image_id,
+            "info": info,
         }
     elif mode == "hour":
         param = int(param) if not isinstance(param, int) else param
 
-        file_name, info, image_id = draw.draw_last_hour_pro(
-            database, station_name, column, param, sep="|", zone="Asia/Shanghai"
+        # 异步绘图，防止阻塞线程
+        file_name, info, image_id = await asyncio.to_thread(
+            draw.draw_last_hour_pro,
+            station_name,
+            column,
+            param,
+            sep="|",
+            zone="Asia/Shanghai",
         )
+
         image_token = str(uuid.uuid4())
         tools.one_time_image_tokens[image_token] = (time.time(), file_name)
         return {
             "url": f"http://127.0.0.1:7763/image?image_token={image_token}",
-            "image_id":image_id,
-            "info": info
+            "image_id": image_id,
+            "info": info,
         }
     else:
         logger.error(f"Wrong Mode: {mode}, need 'date' or 'hour'")
@@ -179,3 +199,8 @@ async def image(image_token: str):
 
     # 返回静态资源
     return FileResponse(os.path.join("image", file_name))
+
+@router.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    # return FileResponse(os.path.join("static", "favicon.ico"))
+    return Response(status_code=204)
