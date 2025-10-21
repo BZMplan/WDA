@@ -48,9 +48,9 @@ def clean_expired_image_tokens():
         for image_token in expired_tokens:
             # 删除token和对应的文件
             _, resource_path = one_time_image_tokens[image_token]
-            os.remove(os.path.join("image", resource_path))
-            # logger.info(f"图片'{os.path.join("image",resource_path)}'过期，已删除")
-            img_path = os.path.join("image", resource_path)
+            os.remove(os.path.join("images", resource_path))
+            # logger.info(f"图片'{os.path.join("images",resource_path)}'过期，已删除")
+            img_path = os.path.join("images", resource_path)
             logger.info(f"图片'{img_path}'过期,已删除")
             del one_time_image_tokens[image_token]
 

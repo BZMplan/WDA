@@ -28,8 +28,14 @@
 ```
 .
 ├── data/               # 存放站点数据
-├── image/              # 生成的图片文件目录
-├── draw.py             # 数据绘图脚本
+├── images/             # 生成的图片文件目录
+├── services/           # 后台服务模块（绘图/初始化/工具）
+│   ├── plot.py         # 数据绘图服务
+│   ├── bootstrap.py    # 目录与日志配置初始化
+│   └── utils.py        # 工具与清理任务
+├── routes/             # API 路由（FastAPI APIRouter）
+│   ├── get.py          # GET 路由
+│   └── post.py         # POST 路由
 ├── main.py             # API主程序
 ├── pyproject.toml      # 项目依赖配置
 ├── log_config.ini      # 日志配置
@@ -114,19 +120,19 @@ uv run main.py
 
 ## 代码示例
 
-来自 `draw.py` 的示例绘图调用：
+来自 `services/plot.py` 的示例绘图调用：
 
 ```
-from draw import draw_specific_day
+from services import plot
 
-draw_specific_day("./data/esp32 test.csv", "temperature", "2025-08-19")
+plot.draw_specific_day_pro("station_1", ["temperature"], "2025-08-19")
 ```
 
 ---
 
 ## 日志与调试
 
-日志采用 `uvicorn` 标准日志格式，方便定位问题。图表文件保存在 `./image/` 目录。
+日志采用 `uvicorn` 标准日志格式，方便定位问题。图表文件保存在 `./images/` 目录。
 
 ---
 
