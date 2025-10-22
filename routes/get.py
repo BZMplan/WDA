@@ -144,13 +144,16 @@ async def api_get_image(
 
         # 异步绘图，防止阻塞线程
         file_name, info, image_id = await asyncio.to_thread(
-            draw.draw_specific_day_pro,
+            draw.draw_specific_day,
             station_name,
             column,
             param,
             sep="|",
             zone="Asia/Shanghai",
         )
+
+        if not file_name:
+            return {"url": None, "image_id": None, "info": info}
 
         image_token = str(uuid.uuid4())
         tools.one_time_image_tokens[image_token] = (time.time(), file_name)
@@ -164,13 +167,16 @@ async def api_get_image(
 
         # 异步绘图，防止阻塞线程
         file_name, info, image_id = await asyncio.to_thread(
-            draw.draw_last_hour_pro,
+            draw.draw_last_hour,
             station_name,
             column,
             param,
             sep="|",
             zone="Asia/Shanghai",
         )
+
+        if not file_name:
+            return {"url": None, "image_id": None, "info": info}
 
         image_token = str(uuid.uuid4())
         tools.one_time_image_tokens[image_token] = (time.time(), file_name)

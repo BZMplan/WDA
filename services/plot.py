@@ -42,15 +42,43 @@ def _select_plot_params(columns):
 def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
     """
     读取站点在指定日期的CSV数据，合并并完成基本清洗/转换。
+
+    健壮性增强：
+    - station_name 必须为非空字符串
+    - dates_to_read 必须为非空可迭代，且元素可解析为 YYYY-MM-DD
+    - 若未读取到任何文件，返回包含 "datetime" 与所需列的空 DataFrame，避免后续 KeyError
     - 仅读取需要的列：timestamp + selected_cols
-    - 直接将 "NULL" 作为缺失值读取，避免二次替换
-    - 转换为带时区的 datetime 并排序
+    - 将 "NULL" 作为缺失值读取；转换为带时区的 datetime 并排序
     """
+    # 参数校验与归一化
+    if not isinstance(station_name, str) or not station_name.strip():
+        logger.warning("station_name 非法或为空: %r", station_name)
+        return pd.DataFrame({"datetime": [] , **{c: [] for c in selected_cols}})
+
+    if not dates_to_read:
+        logger.warning("dates_to_read 为空或未提供: %r", dates_to_read)
+        return pd.DataFrame({"datetime": [] , **{c: [] for c in selected_cols}})
+
+    # 过滤非法日期字符串
+    valid_days = []
+    for d in dates_to_read:
+        try:
+            day = pd.to_datetime(d).strftime("%Y-%m-%d")
+            valid_days.append(day)
+        except Exception:
+            logger.warning("忽略无法解析的日期: %r", d)
+
+    if not valid_days:
+        logger.warning("dates_to_read 无有效日期: %r", dates_to_read)
+        return pd.DataFrame({"datetime": [] , **{c: [] for c in selected_cols}})
+
     usecols_allow = set(["timestamp", *selected_cols])
     frames = []
-    for day in dates_to_read:
+    missing = []
+    for day in valid_days:
         path = f"./data/{station_name}_{day}.csv"
         if not os.path.exists(path):
+            missing.append(path)
             continue
         df = pd.read_csv(
             path,
@@ -63,7 +91,9 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
         frames.append(df)
 
     if not frames:
-        return pd.DataFrame(columns=["timestamp", *selected_cols])
+        if missing:
+            logger.warning("未找到任何匹配的数据文件: %s", ", ".join(missing))
+        return pd.DataFrame({"datetime": [] , **{c: [] for c in selected_cols}})
 
     df = pd.concat(frames, ignore_index=True, sort=False)
 
@@ -71,6 +101,9 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
         dt = pd.to_datetime(df["timestamp"], unit="s", utc=True)
         df["datetime"] = dt.dt.tz_convert(zone)
         df.sort_values("datetime", inplace=True)
+    else:
+        # 缺失 timestamp 列时，补充 NaT，保持列存在
+        df["datetime"] = pd.NaT
 
     for col in selected_cols:
         if col in df.columns:
@@ -133,7 +166,7 @@ def _make_plots(plot_df, plot_params, station_name, title_suffix):
 
 
 # 绘制自定义小时前的图像
-def draw_last_hour_pro(
+def draw_last_hour(
     station_name, columns=None, hours_back=24, sep="|", zone="Asia/Shanghai"
 ):
     # 准备读取的日期（今天与昨天）
@@ -150,11 +183,7 @@ def draw_last_hour_pro(
     if df.empty:
         warning = "无可用数据文件"
         logger.warning(warning)
-        empty_df = pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
-        file_name, image_id = _make_plots(
-            empty_df, plot_params, station_name, title_suffix="No Data"
-        )
-        return file_name, warning, image_id
+        return None, warning, None
 
     # 计算时间范围并筛选
     latest_time = df["datetime"].max()
@@ -162,8 +191,13 @@ def draw_last_hour_pro(
     time_filtered = df[df["datetime"] >= start_time]
     title_suffix = f"in Last {hours_back} Hours"
 
-    # 判断是否使用全部数据
+    # 统计信息与空数据判断
     filtered_count = len(time_filtered)
+    if filtered_count == 0:
+        warning = f"指定时间范围内无数据（最近{hours_back}小时）"
+        logger.warning(warning)
+        return None, warning, None
+
     if filtered_count >= 2:
         actual_span = (
             time_filtered["datetime"].max() - time_filtered["datetime"].min()
@@ -171,19 +205,15 @@ def draw_last_hour_pro(
     else:
         actual_span = 0
 
-    use_all_data = False
     warning = ""
     if filtered_count < 5:
-        use_all_data = True
         warning = f"数据量不足（{filtered_count}条）"
+        logger.warning(warning)
     elif actual_span < hours_back * 0.9:
-        use_all_data = True
         warning = f"时间跨度不足（仅{actual_span:.1f}小时，预期{hours_back}小时）"
+        logger.warning(warning)
 
-    plot_df = df.copy() if use_all_data else time_filtered.copy()
-    if use_all_data:
-        logger.warning(f"{warning}，使用全部数据")
-        title_suffix = "All Available Data"
+    plot_df = time_filtered.copy()
 
     # 降采样提速
     plot_df = _downsample_evenly(plot_df)
@@ -193,7 +223,7 @@ def draw_last_hour_pro(
 
 
 # 绘制自定义日期的图像
-def draw_specific_day_pro(
+def draw_specific_day(
     station_name,
     columns=None,
     specific_date=None,
@@ -217,6 +247,12 @@ def draw_specific_day_pro(
         station_name, [yesterday, today], selected_cols, sep=sep, zone=zone
     )
 
+    # 若未读取到任何数据文件，直接不绘制图像
+    if df.empty:
+        warning = "无可用数据文件"
+        logger.warning(warning)
+        return None, warning, None
+
     # 默认使用今天
     if not specific_date:
         specific_date = datetime.now().strftime("%Y-%m-%d")
@@ -236,36 +272,30 @@ def draw_specific_day_pro(
             ]
 
             filtered_count = len(time_filtered)
-            if filtered_count > 0:
-                first_data_time = time_filtered["datetime"].min()
-                last_data_time = time_filtered["datetime"].max()
-                actual_span = (last_data_time - first_data_time).total_seconds() / 3600
-            else:
-                actual_span = 0
-
-            use_all_data = False
             if filtered_count == 0:
-                use_all_data = True
                 warning = f"指定日期{specific_date}无任何数据"
-            elif actual_span < 24 * 0.9:
-                use_all_data = True
-                warning = f"指定日期数据覆盖不足（仅{actual_span:.1f}小时）"
-            elif filtered_count < 5:
-                use_all_data = True
-                warning = f"指定日期数据量过少（仅{filtered_count}条）"
+                logger.warning(warning)
+                return None, warning, None
 
-            if use_all_data:
-                logger.warning(f"{warning}，将使用全部数据")
-                plot_df = df.copy()
-                title_suffix = f"{specific_date} Use All Data"
-            else:
-                plot_df = time_filtered.copy()
+            first_data_time = time_filtered["datetime"].min()
+            last_data_time = time_filtered["datetime"].max()
+            actual_span = (last_data_time - first_data_time).total_seconds() / 3600
+
+            if actual_span < 24 * 0.9:
+                warning = f"指定日期数据覆盖不足（仅{actual_span:.1f}小时）"
+                logger.warning(warning)
+            elif filtered_count < 5:
+                warning = f"指定日期数据量过少（仅{filtered_count}条）"
+                logger.warning(warning)
+
+            plot_df = time_filtered.copy()
 
         except Exception as e:
             logger.warning(f"日期格式错误: {e}，将使用全部数据")
-            plot_df = df.copy()
-            title_suffix = "Use All Data"
+            # 日期错误时无法准确过滤，视为无数据可绘
+            return None, f"日期格式错误: {e}", None
     else:
+        # 未传 specific_date 的情况下不做强制过滤，保留默认 today 语义
         plot_df = df.copy()
 
     plot_df = _downsample_evenly(plot_df)
@@ -275,6 +305,6 @@ def draw_specific_day_pro(
 
 
 # Test Code
-# draw_last_hour_pro("station_2", ["temperature", "pressure", "relative_humidity"], 2)
-# draw_specific_day_pro("station_2",["temperature","pressure","relative_humidity"],"2025-08-21")
-# draw_specific_day_pro("1",["temperature","pressure","relative_humidity"],"2025-10-12")
+# draw_last_hour("station_2", ["temperature", "pressure", "relative_humidity"], 2)
+# draw_specific_day("station_2",["temperature","pressure","relative_humidity"],"2025-08-21")
+# draw_specific_day("1",["temperature","pressure","relative_humidity"],"2025-10-12")

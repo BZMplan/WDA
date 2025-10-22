@@ -125,7 +125,7 @@ uv run main.py
 ```
 from services import plot
 
-plot.draw_specific_day_pro("station_1", ["temperature"], "2025-08-19")
+plot.draw_specific_day("station_1", ["temperature"], "2025-08-19")
 ```
 
 ---
