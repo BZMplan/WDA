@@ -11,9 +11,6 @@ ELEMENT_FIELDS = [
     "relative_humidity",
     "wind_speed",
     "wind_direction",
-    "ground_temperature",
-    "evaporation_capacity",
-    "sunshine_duration",
 ]
 
 # 设置路由

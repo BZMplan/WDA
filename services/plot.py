@@ -22,9 +22,6 @@ params = [
     ("relative_humidity", "Relative Humidity", "%", "green"),
     ("wind_speed", "Wind Speed", "m/s", "yellow"),
     ("wind_direction", "Wind Direction", "°", "black"),
-    ("ground_temperature", "Ground Temperature", "°C", "orange"),
-    ("evaporation_capacity", "Evaporation Capacity", "mm", "indigo"),
-    ("sunshine_duration", "Sunshine Duration", "h", "black"),
 ]
 
 
@@ -53,11 +50,11 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
     # 参数校验与归一化
     if not isinstance(station_name, str) or not station_name.strip():
         logger.warning("station_name 非法或为空: %r", station_name)
-        return pd.DataFrame({"datetime": [] , **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
 
     if not dates_to_read:
         logger.warning("dates_to_read 为空或未提供: %r", dates_to_read)
-        return pd.DataFrame({"datetime": [] , **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
 
     # 过滤非法日期字符串
     valid_days = []
@@ -70,7 +67,7 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
 
     if not valid_days:
         logger.warning("dates_to_read 无有效日期: %r", dates_to_read)
-        return pd.DataFrame({"datetime": [] , **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
 
     usecols_allow = set(["timestamp", *selected_cols])
     frames = []
@@ -93,7 +90,7 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
     if not frames:
         if missing:
             logger.warning("未找到任何匹配的数据文件: %s", ", ".join(missing))
-        return pd.DataFrame({"datetime": [] , **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
 
     df = pd.concat(frames, ignore_index=True, sort=False)
 

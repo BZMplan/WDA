@@ -92,9 +92,6 @@ uv run main.py
     "relative_humidity": 78.5,
     "wind_speed": 3.2,
     "wind_direction": 180,
-    "ground_temperature": 20.1,
-    "evaporation_capacity": 0.5,
-    "sunshine_duration": 5.0
   }
   ```
 

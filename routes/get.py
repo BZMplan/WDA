@@ -18,9 +18,6 @@ ALLOWED_CLASSES: List[str] = [
     "relative_humidity",
     "wind_speed",
     "wind_direction",
-    "ground_temperature",
-    "evaporation_capacity",
-    "sunshine_duration",
 ]
 
 # 设置路由
@@ -31,7 +28,7 @@ router = APIRouter(
 # 初始化日志
 logger = logging.getLogger("uvicorn.app")
 
-
+# 弃用，只能选择一个或者全部要素，可用性不高
 def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFrame:
     path = os.path.join("data", f"{station_name}_{day}.csv")
     if not os.path.exists(path):
@@ -41,7 +38,11 @@ def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFram
 
 @router.get("/api/get")
 async def api_get(
-    station_name: str, timestamp: int | None = None, element: str = "all"
+    station_name: str,
+    timestamp: int | None = None,
+    sep="|",
+    zone="Asia/Shanghai",
+    elements: str = Query(...),
 ):
     day = (
         time.strftime("%Y-%m-%d", time.localtime(timestamp))
@@ -49,65 +50,101 @@ async def api_get(
         else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
     )
 
+    # 列参数解析：优先 JSON；失败时支持以逗号分隔
     try:
-        # 只读取必要列以提速
-        if element == "all":
-            df = _read_station_file(station_name, day)
-        else:
-            df = _read_station_file(
-                station_name, day, usecols=["station_name", "timestamp", element]
-            )
+        parsed = json.loads(elements)
+    except json.JSONDecodeError:
+        parsed = [c.strip() for c in elements.split(",") if c.strip()]
+
+    if isinstance(parsed, str):
+        parsed = [parsed]
+
+    if not isinstance(parsed, list) or not parsed:
+        return {
+            "status": status.HTTP_400_BAD_REQUEST,
+            "message": "elements 参数无效，应为非空列表或逗号分隔字符串",
+            "data": None,
+        }
+
+    normalized: list[str] = []
+    for entry in parsed:
+        if not isinstance(entry, str):
+            return {
+                "status": status.HTTP_400_BAD_REQUEST,
+                "message": "elements 参数包含非字符串条目",
+                "data": None,
+            }
+        normalized.append(entry.strip())
+
+    if len(normalized) == 1 and normalized[0].lower() == "all":
+        element_names = ALLOWED_CLASSES
+    else:
+        element_names = []
+        for e in normalized:
+            if e not in ALLOWED_CLASSES:
+                return {
+                    "status": status.HTTP_400_BAD_REQUEST,
+                    "message": {
+                        f"Invalid class: {e}",
+                        f"Legal class: {ALLOWED_CLASSES}",
+                    },
+                    "data": None,
+                }
+            if e not in element_names:
+                element_names.append(e)
+
+    try:
+        selected_cols = element_names
+        df = draw._read_station_data(
+            station_name, [day], selected_cols, sep=sep, zone=zone
+        )
     except FileNotFoundError:
         return {
             "status": status.HTTP_404_NOT_FOUND,
-            "message": "data file not found",
+            "message": "未找找到数据文件",
             "data": None,
         }
     except Exception as e:
         return {
             "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "message": f"read csv failed: {e}",
+            "message": f"读取csv文件失败: {e}",
             "data": None,
         }
 
     if df.empty:
         return {
             "status": status.HTTP_404_NOT_FOUND,
-            "message": "no data found",
-            "data": None,
-        }
-
-    # 元素校验（仅当不是 all 时）
-    if element != "all" and element not in df.columns:
-        return {
-            "status": status.HTTP_400_BAD_REQUEST,
-            "message": "element not found",
+            "message": "无数据",
             "data": None,
         }
 
     if timestamp is None:
-        row = df.tail(1)
-        if element == "all":
-            result = row.to_dict(orient="records")[0]
-        else:
-            result = row[["station_name", "timestamp", element]].to_dict(
-                orient="records"
-            )[0]
+        row = df.tail(1).iloc[0]
     else:
         mask = df["timestamp"] == timestamp
         if not mask.any():
             return {
                 "status": status.HTTP_404_NOT_FOUND,
-                "message": "no data at the given timestamp",
+                "message": "给定的时间戳无数据",
                 "data": None,
             }
-        sub = df.loc[mask]
-        if element == "all":
-            result = sub.to_dict(orient="records")[0]
-        else:
-            result = sub[["station_name", "timestamp", element]].to_dict(
-                orient="records"
-            )[0]
+        row = df.loc[mask].iloc[-1]
+
+    def _native(value):
+        if pd.isna(value):
+            return None
+        return value.item() if hasattr(value, "item") else value
+
+    timestamp_value = _native(row.get("timestamp"))
+    if isinstance(timestamp_value, float) and timestamp_value.is_integer():
+        timestamp_value = int(timestamp_value)
+
+    result = {
+        "station_name": station_name,
+        "timestamp": timestamp_value,
+    }
+    for col in element_names:
+        result[col] = _native(row.get(col))
 
     result = tools.clean_nan_values(result)
     return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
