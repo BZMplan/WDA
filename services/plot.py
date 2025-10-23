@@ -20,6 +20,8 @@ params = [
     ("temperature", "Temperature", "°C", "red"),
     ("pressure", "Pressure", "hPa", "blue"),
     ("relative_humidity", "Relative Humidity", "%", "green"),
+    ("dew_point","Dew Temperature","°C","red"),
+    ("sea_level_pressure","Sea Pressure", "hPa", "blue"),
     ("wind_speed", "Wind Speed", "m/s", "yellow"),
     ("wind_direction", "Wind Direction", "°", "black"),
 ]
@@ -203,6 +205,7 @@ def draw_last_hour(
         actual_span = 0
 
     warning = ""
+    
     if filtered_count < 5:
         warning = f"数据量不足（{filtered_count}条）"
         logger.warning(warning)
@@ -227,21 +230,21 @@ def draw_specific_day(
     sep="|",
     zone="Asia/Shanghai",
 ):
-    # 计算目标日期与前一天，优先读取两天数据
+    # 读取特定日期下的数据数据
     if specific_date is None:
         today = datetime.now().strftime("%Y-%m-%d")
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        # yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     else:
         today = specific_date
-        yesterday = (pd.to_datetime(specific_date) - timedelta(days=1)).strftime(
-            "%Y-%m-%d"
-        )
+        # yesterday = (pd.to_datetime(specific_date) - timedelta(days=1)).strftime(
+        #     "%Y-%m-%d"
+        # )
 
     plot_params = _select_plot_params(columns)
     selected_cols = [name for name, *_ in plot_params]
 
     df = _read_station_data(
-        station_name, [yesterday, today], selected_cols, sep=sep, zone=zone
+        station_name, [today], selected_cols, sep=sep, zone=zone
     )
 
     # 若未读取到任何数据文件，直接不绘制图像

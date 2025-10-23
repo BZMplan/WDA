@@ -16,6 +16,8 @@ ALLOWED_CLASSES: List[str] = [
     "temperature",
     "pressure",
     "relative_humidity",
+    "dew_point",
+    "sea_level_pressure",
     "wind_speed",
     "wind_direction",
 ]
@@ -28,6 +30,7 @@ router = APIRouter(
 # 初始化日志
 logger = logging.getLogger("uvicorn.app")
 
+
 # 弃用，只能选择一个或者全部要素，可用性不高
 def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFrame:
     path = os.path.join("data", f"{station_name}_{day}.csv")
@@ -36,8 +39,8 @@ def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFram
     return pd.read_csv(path, sep="|", usecols=usecols)
 
 
-@router.get("/api/get")
-async def api_get(
+@router.get("/api/get/info")
+async def api_get_info(
     station_name: str,
     timestamp: int | None = None,
     sep="|",
@@ -50,54 +53,39 @@ async def api_get(
         else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
     )
 
-    # 列参数解析：优先 JSON；失败时支持以逗号分隔
     try:
-        parsed = json.loads(elements)
+        element = json.loads(elements)
     except json.JSONDecodeError:
-        parsed = [c.strip() for c in elements.split(",") if c.strip()]
+        element = [e.strip() for e in elements.split(",") if e.strip()]
 
-    if isinstance(parsed, str):
-        parsed = [parsed]
-
-    if not isinstance(parsed, list) or not parsed:
+    # 校验列名
+    if len(element) == 1 and element[0].lower() == "all":
+        element = ALLOWED_CLASSES
+    else:
         return {
             "status": status.HTTP_400_BAD_REQUEST,
-            "message": "elements 参数无效，应为非空列表或逗号分隔字符串",
-            "data": None,
+            "message": {
+                f"Invalid class: {element}",
+                f"Legal class: {["all"]} or {ALLOWED_CLASSES}",
+            },
         }
 
-    normalized: list[str] = []
-    for entry in parsed:
-        if not isinstance(entry, str):
+    for e in element:
+        if e not in ALLOWED_CLASSES:
             return {
                 "status": status.HTTP_400_BAD_REQUEST,
-                "message": "elements 参数包含非字符串条目",
-                "data": None,
+                "message": {f"Invalid class: {e}", f"Legal class: {ALLOWED_CLASSES}"},
             }
-        normalized.append(entry.strip())
 
-    if len(normalized) == 1 and normalized[0].lower() == "all":
-        element_names = ALLOWED_CLASSES
-    else:
-        element_names = []
-        for e in normalized:
-            if e not in ALLOWED_CLASSES:
-                return {
-                    "status": status.HTTP_400_BAD_REQUEST,
-                    "message": {
-                        f"Invalid class: {e}",
-                        f"Legal class: {ALLOWED_CLASSES}",
-                    },
-                    "data": None,
-                }
-            if e not in element_names:
-                element_names.append(e)
+    plot_params = draw._select_plot_params(element)
+    selected_cols = [name for name, *_ in plot_params]
 
     try:
-        selected_cols = element_names
+        # selected_cols = element_names
         df = draw._read_station_data(
             station_name, [day], selected_cols, sep=sep, zone=zone
         )
+
     except FileNotFoundError:
         return {
             "status": status.HTTP_404_NOT_FOUND,
@@ -143,7 +131,7 @@ async def api_get(
         "station_name": station_name,
         "timestamp": timestamp_value,
     }
-    for col in element_names:
+    for col in selected_cols:
         result[col] = _native(row.get(col))
 
     result = tools.clean_nan_values(result)
@@ -156,21 +144,21 @@ async def api_get_image(
     mode: str,
     station_name: str,
     param: Union[int, str],
-    columns: str = Query(...),
+    elements: str = Query(...),
 ):
 
     # 列参数解析：优先 JSON；失败时支持以逗号分隔
     try:
-        column = json.loads(columns)
+        element = json.loads(elements)
     except json.JSONDecodeError:
-        column = [c.strip() for c in columns.split(",") if c.strip()]
+        element = [c.strip() for c in elements.split(",") if c.strip()]
 
     # 校验列名
-    for c in column:
-        if c not in ALLOWED_CLASSES:
+    for e in element:
+        if e not in ALLOWED_CLASSES:
             return {
                 "status": status.HTTP_400_BAD_REQUEST,
-                "message": {f"Invalid class: {c}", f"Legal class: {ALLOWED_CLASSES}"},
+                "message": {f"Invalid class: {e}", f"Legal class: {ALLOWED_CLASSES}"},
             }
 
     if mode == "date":
@@ -183,7 +171,7 @@ async def api_get_image(
         file_name, info, image_id = await asyncio.to_thread(
             draw.draw_specific_day,
             station_name,
-            column,
+            element,
             param,
             sep="|",
             zone="Asia/Shanghai",
@@ -206,7 +194,7 @@ async def api_get_image(
         file_name, info, image_id = await asyncio.to_thread(
             draw.draw_last_hour,
             station_name,
-            column,
+            element,
             param,
             sep="|",
             zone="Asia/Shanghai",

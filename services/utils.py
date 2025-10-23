@@ -16,9 +16,6 @@ class element(BaseModel):
     relative_humidity: Optional[float] = None  # 相对湿度
     wind_speed: Optional[float] = None  # 风速
     wind_direction: Optional[float] = None  # 风向
-    ground_temperature: Optional[float] = None  # 地温
-    evaporation_capacity: Optional[float] = None  # 蒸发量
-    sunshine_duration: Optional[float] = None  # 日照时间
 
     class Config:
         extra = "ignore"
