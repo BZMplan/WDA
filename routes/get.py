@@ -106,17 +106,27 @@ async def api_get_info(
             "data": None,
         }
 
+    message_text = "query success"
+
     if timestamp is None:
         row = df.tail(1).iloc[0]
     else:
         mask = df["timestamp"] == timestamp
-        if not mask.any():
-            return {
-                "status": status.HTTP_404_NOT_FOUND,
-                "message": "给定的时间戳无数据",
-                "data": None,
-            }
-        row = df.loc[mask].iloc[-1]
+        if mask.any():
+            row = df.loc[mask].iloc[-1]
+        else:
+            numeric_timestamps = pd.to_numeric(
+                df["timestamp"], errors="coerce"
+            ).dropna()
+            if numeric_timestamps.empty:
+                return {
+                    "status": status.HTTP_404_NOT_FOUND,
+                    "message": "给定的时间戳无数据",
+                    "data": None,
+                }
+            nearest_index = (numeric_timestamps - timestamp).abs().idxmin()
+            row = df.loc[nearest_index]
+            message_text = "query success (nearest timestamp)"
 
     def _native(value):
         if pd.isna(value):
@@ -135,7 +145,11 @@ async def api_get_info(
         result[col] = _native(row.get(col))
 
     result = tools.clean_nan_values(result)
-    return {"status": status.HTTP_200_OK, "message": "query success", "data": result}
+    return {
+        "status": status.HTTP_200_OK,
+        "message": message_text,
+        "data": result,
+    }
 
 
 # 发送请求获取对应图片的url
