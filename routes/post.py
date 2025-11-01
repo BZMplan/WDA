@@ -60,6 +60,7 @@ async def api_upload(item: tools.element):
     row = {
         "station_name": station_name,
         "timestamp": timestamp,
+        "time_utc": time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp)),
         **{
             k: (element_values[k] if element_values[k] is not None else "NULL")
             for k in ELEMENT_FIELDS
@@ -72,8 +73,8 @@ async def api_upload(item: tools.element):
 
     try:
         df = pd.DataFrame([row])
-        df["datetime"] = pd.to_datetime(df["timestamp"], unit="s")
-        df["minute_level"] = df["datetime"].dt.strftime("%Y-%m-%d %H:%M")
+        df["time"] = pd.to_datetime(df["timestamp"], unit="s")
+        df["time_utc"] = df["time"].dt.strftime("%Y-%m-%d %H:%M")
 
         numeric_cols = [
             "temperature",
@@ -90,12 +91,12 @@ async def api_upload(item: tools.element):
 
         # 按站点和分钟分组，计算平均值，保留两位小数
         tmp = (
-            df.groupby(["station_name", "minute_level"])[numeric_cols]
+            df.groupby(["station_name", "time_utc"])[numeric_cols]
             .mean()
             .reset_index()
             .round(2)
         )
-        
+
         created = False
         # 若csv文件未被创建则先创建
         if not os.path.exists("data/tmp.csv"):
@@ -110,9 +111,9 @@ async def api_upload(item: tools.element):
 
         tmp_df = pd.read_csv("data/tmp.csv")
 
-        if tmp["minute_level"].values != tmp_df["minute_level"].iloc[-1]:
+        if tmp["time_utc"].values != tmp_df["time_utc"].iloc[-1]:
             df = (
-                tmp_df.groupby(["station_name", "minute_level"])[numeric_cols]
+                tmp_df.groupby(["station_name", "time_utc"])[numeric_cols]
                 .mean()
                 .reset_index()
                 .round(2)

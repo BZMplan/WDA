@@ -47,10 +47,10 @@ async def api_get_info(
     zone="Asia/Shanghai",
     elements: str = Query(...),
 ):
-    day = (
-        time.strftime("%Y-%m-%d", time.localtime(timestamp))
+    time_utc = (
+        time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp))
         if timestamp
-        else time.strftime("%Y-%m-%d", time.localtime(int(time.time())))
+        else time.strftime("%Y-%m-%d %H:%M", time.localtime(int(time.time())))
     )
 
     try:
@@ -61,35 +61,35 @@ async def api_get_info(
     # 校验列名
     if len(element) == 1 and element[0].lower() == "all":
         element = ALLOWED_CLASSES
-    else:
-        return {
-            "status": status.HTTP_400_BAD_REQUEST,
-            "message": {
-                f"Invalid class: {element}",
-                f"Legal class: {["all"]} or {ALLOWED_CLASSES}",
-            },
-        }
 
+    errors = []
     for e in element:
         if e not in ALLOWED_CLASSES:
-            return {
-                "status": status.HTTP_400_BAD_REQUEST,
-                "message": {f"Invalid class: {e}", f"Legal class: {ALLOWED_CLASSES}"},
-            }
+            errors.append(e)
+    if len(errors) != 0:
+        return {
+            "status": status.HTTP_400_BAD_REQUEST,
+            "message": {f"Invalid class: {errors}", f"Legal class: {ALLOWED_CLASSES}"},
+            "data": None,
+        }
 
     plot_params = draw._select_plot_params(element)
     selected_cols = [name for name, *_ in plot_params]
 
     try:
-        # selected_cols = element_names
         df = draw._read_station_data(
-            station_name, [day], selected_cols, sep=sep, zone=zone
+            station_name, [time_utc], selected_cols, sep=sep, zone=zone
         )
+
+        # print(df)
+        #            time_utc  temperature  pressure  ...  sea_level_pressure  dew_point                      time
+        # 0  2025-11-01 08:32         15.3    1013.4  ...             1016.69       9.47 2025-11-01 16:32:00+08:00
+        # 1  2025-11-01 08:33         15.3    1013.4  ...             1016.69       9.47 2025-11-01 16:33:00+08:00
 
     except FileNotFoundError:
         return {
             "status": status.HTTP_404_NOT_FOUND,
-            "message": "未找找到数据文件",
+            "message": "未找到数据文件",
             "data": None,
         }
     except Exception as e:
@@ -99,6 +99,11 @@ async def api_get_info(
             "data": None,
         }
 
+    def _native(value):
+        if pd.isna(value):
+            return None
+        return value.item() if hasattr(value, "item") else value
+
     if df.empty:
         return {
             "status": status.HTTP_404_NOT_FOUND,
@@ -106,50 +111,23 @@ async def api_get_info(
             "data": None,
         }
 
-    message_text = "query success"
-
+    result = result = {
+        "station_name": station_name,
+        "time_utc": time_utc,
+    }
     if timestamp is None:
-        row = df.tail(1).iloc[0]
+        row = df.tail[1].iloc[0]
     else:
-        mask = df["timestamp"] == timestamp
+        mask = df["time_utc"] == time_utc
         if mask.any():
             row = df.loc[mask].iloc[-1]
         else:
-            numeric_timestamps = pd.to_numeric(
-                df["timestamp"], errors="coerce"
-            ).dropna()
-            if numeric_timestamps.empty:
-                return {
-                    "status": status.HTTP_404_NOT_FOUND,
-                    "message": "给定的时间戳无数据",
-                    "data": None,
-                }
-            nearest_index = (numeric_timestamps - timestamp).abs().idxmin()
-            row = df.loc[nearest_index]
-            message_text = "query success (nearest timestamp)"
+            return {"status": status.HTTP_404_NOT_FOUND, "message": "无数据"}
 
-    def _native(value):
-        if pd.isna(value):
-            return None
-        return value.item() if hasattr(value, "item") else value
-
-    timestamp_value = _native(row.get("timestamp"))
-    if isinstance(timestamp_value, float) and timestamp_value.is_integer():
-        timestamp_value = int(timestamp_value)
-
-    result = {
-        "station_name": station_name,
-        "timestamp": timestamp_value,
-    }
     for col in selected_cols:
         result[col] = _native(row.get(col))
 
-    result = tools.clean_nan_values(result)
-    return {
-        "status": status.HTTP_200_OK,
-        "message": message_text,
-        "data": result,
-    }
+    return {"status": status.HTTP_200_OK, "message": "成功获取数据", "data": result}
 
 
 # 发送请求获取对应图片的url

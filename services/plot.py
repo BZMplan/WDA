@@ -45,18 +45,18 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
     健壮性增强：
     - station_name 必须为非空字符串
     - dates_to_read 必须为非空可迭代，且元素可解析为 YYYY-MM-DD
-    - 若未读取到任何文件，返回包含 "datetime" 与所需列的空 DataFrame，避免后续 KeyError
-    - 仅读取需要的列：timestamp + selected_cols
+    - 若未读取到任何文件，返回包含 "time" 与所需列的空 DataFrame，避免后续 KeyError
+    - 仅读取需要的列：time_utc + selected_cols
     - 将 "NULL" 作为缺失值读取；转换为带时区的 datetime 并排序
     """
     # 参数校验与归一化
     if not isinstance(station_name, str) or not station_name.strip():
         logger.warning("station_name 非法或为空: %r", station_name)
-        return pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"time": [], **{c: [] for c in selected_cols}})
 
     if not dates_to_read:
         logger.warning("dates_to_read 为空或未提供: %r", dates_to_read)
-        return pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"time": [], **{c: [] for c in selected_cols}})
 
     # 过滤非法日期字符串
     valid_days = []
@@ -69,9 +69,9 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
 
     if not valid_days:
         logger.warning("dates_to_read 无有效日期: %r", dates_to_read)
-        return pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"time": [], **{c: [] for c in selected_cols}})
 
-    usecols_allow = set(["timestamp", *selected_cols])
+    usecols_allow = set(["time_utc", *selected_cols])
     frames = []
     missing = []
     for day in valid_days:
@@ -92,17 +92,17 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
     if not frames:
         if missing:
             logger.warning("未找到任何匹配的数据文件: %s", ", ".join(missing))
-        return pd.DataFrame({"datetime": [], **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"time": [], **{c: [] for c in selected_cols}})
 
     df = pd.concat(frames, ignore_index=True, sort=False)
 
-    if "timestamp" in df.columns:
-        dt = pd.to_datetime(df["timestamp"], unit="s", utc=True)
-        df["datetime"] = dt.dt.tz_convert(zone)
-        df.sort_values("datetime", inplace=True)
+    if "time_utc" in df.columns:
+        dt = pd.to_datetime(df["time_utc"], utc=True)
+        df["time"] = dt.dt.tz_convert(zone)
+        df.sort_values("time", inplace=True)
     else:
-        # 缺失 timestamp 列时，补充 NaT，保持列存在
-        df["datetime"] = pd.NaT
+        # 缺失 time_utc 列时，补充 NaT，保持列存在
+        df["time"] = pd.NaT
 
     for col in selected_cols:
         if col in df.columns:
@@ -131,7 +131,7 @@ def _make_plots(plot_df, plot_params, station_name, title_suffix):
     axes_list = axes if n > 1 else [axes]
 
     for ax, (column, title, unit, color) in zip(axes_list, plot_params):
-        ax.plot(plot_df["datetime"], plot_df[column], color=color, linewidth=1.2)
+        ax.plot(plot_df["time"], plot_df[column], color=color, linewidth=1.2)
         ax.set_title(title)
         ax.set_ylabel("")
         ax.yaxis.set_major_formatter(
@@ -185,9 +185,9 @@ def draw_last_hour(
         return None, warning, None
 
     # 计算时间范围并筛选
-    latest_time = df["datetime"].max()
+    latest_time = df["time"].max()
     start_time = latest_time - timedelta(hours=hours_back)
-    time_filtered = df[df["datetime"] >= start_time]
+    time_filtered = df[df["time"] >= start_time]
     title_suffix = f"in Last {hours_back} Hours"
 
     # 统计信息与空数据判断
@@ -199,7 +199,7 @@ def draw_last_hour(
 
     if filtered_count >= 2:
         actual_span = (
-            time_filtered["datetime"].max() - time_filtered["datetime"].min()
+            time_filtered["time"].max() - time_filtered["time"].min()
         ).total_seconds() / 3600
     else:
         actual_span = 0
@@ -268,7 +268,7 @@ def draw_specific_day(
             end_date = start_date + timedelta(days=1)
 
             time_filtered = df[
-                (df["datetime"] >= start_date) & (df["datetime"] < end_date)
+                (df["time"] >= start_date) & (df["time"] < end_date)
             ]
 
             filtered_count = len(time_filtered)
@@ -277,8 +277,8 @@ def draw_specific_day(
                 logger.warning(warning)
                 return None, warning, None
 
-            first_data_time = time_filtered["datetime"].min()
-            last_data_time = time_filtered["datetime"].max()
+            first_data_time = time_filtered["time"].min()
+            last_data_time = time_filtered["time"].max()
             actual_span = (last_data_time - first_data_time).total_seconds() / 3600
 
             if actual_span < 24 * 0.9:
