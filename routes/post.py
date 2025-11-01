@@ -74,7 +74,7 @@ async def api_upload(item: tools.element):
             file_path,
             index=False,
             header=not os.path.exists(file_path),
-            sep="|",
+            sep=",",
             mode="a",
         )
     except Exception as e:

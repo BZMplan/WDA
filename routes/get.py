@@ -36,14 +36,14 @@ def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFram
     path = os.path.join("data", f"{station_name}_{day}.csv")
     if not os.path.exists(path):
         raise FileNotFoundError(path)
-    return pd.read_csv(path, sep="|", usecols=usecols)
+    return pd.read_csv(path, sep=",", usecols=usecols)
 
 
 @router.get("/api/get/info")
 async def api_get_info(
     station_name: str,
     timestamp: int | None = None,
-    sep="|",
+    sep=",",
     zone="Asia/Shanghai",
     elements: str = Query(...),
 ):
@@ -187,7 +187,7 @@ async def api_get_image(
             station_name,
             element,
             param,
-            sep="|",
+            sep=",",
             zone="Asia/Shanghai",
         )
 
@@ -210,7 +210,7 @@ async def api_get_image(
             station_name,
             element,
             param,
-            sep="|",
+            sep=",",
             zone="Asia/Shanghai",
         )
 

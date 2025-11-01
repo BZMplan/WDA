@@ -166,7 +166,7 @@ def _make_plots(plot_df, plot_params, station_name, title_suffix):
 
 # 绘制自定义小时前的图像
 def draw_last_hour(
-    station_name, columns=None, hours_back=24, sep="|", zone="Asia/Shanghai"
+    station_name, columns=None, hours_back=24, sep=",", zone="Asia/Shanghai"
 ):
     # 准备读取的日期（今天与昨天）
     today = datetime.now().strftime("%Y-%m-%d")
@@ -227,7 +227,7 @@ def draw_specific_day(
     station_name,
     columns=None,
     specific_date=None,
-    sep="|",
+    sep=",",
     zone="Asia/Shanghai",
 ):
     # 读取特定日期下的数据数据
