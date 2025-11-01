@@ -64,19 +64,75 @@ async def api_upload(item: tools.element):
             k: (element_values[k] if element_values[k] is not None else "NULL")
             for k in ELEMENT_FIELDS
         },
-        "sea_level_pressure": sea_level_pressure if sea_level_pressure is not None else "NULL",
+        "sea_level_pressure": (
+            sea_level_pressure if sea_level_pressure is not None else "NULL"
+        ),
         "dew_point": dew_point if dew_point is not None else "NULL",
     }
 
     try:
         df = pd.DataFrame([row])
-        df.to_csv(
-            file_path,
-            index=False,
-            header=not os.path.exists(file_path),
-            sep=",",
-            mode="a",
+        df["datetime"] = pd.to_datetime(df["timestamp"], unit="s")
+        df["minute_level"] = df["datetime"].dt.strftime("%Y-%m-%d %H:%M")
+
+        numeric_cols = [
+            "temperature",
+            "pressure",
+            "relative_humidity",
+            "wind_speed",
+            "wind_direction",
+            "sea_level_pressure",
+            "dew_point",
+        ]
+
+        # 替换NULL为NaN（方便后续计算）
+        df[numeric_cols] = df[numeric_cols].replace("NULL", pd.NA)
+
+        # 按站点和分钟分组，计算平均值，保留两位小数
+        tmp = (
+            df.groupby(["station_name", "minute_level"])[numeric_cols]
+            .mean()
+            .reset_index()
+            .round(2)
         )
+        
+        created = False
+        # 若csv文件未被创建则先创建
+        if not os.path.exists("data/tmp.csv"):
+            tmp.to_csv(
+                "data/tmp.csv",
+                index=False,
+                header=not os.path.exists("data/tmp.csv"),
+                sep=",",
+                mode="a",
+            )
+            created = True
+
+        tmp_df = pd.read_csv("data/tmp.csv")
+
+        if tmp["minute_level"].values != tmp_df["minute_level"].iloc[-1]:
+            df = (
+                tmp_df.groupby(["station_name", "minute_level"])[numeric_cols]
+                .mean()
+                .reset_index()
+                .round(2)
+            )
+            df.to_csv(
+                file_path,
+                index=False,
+                header=not os.path.exists(file_path),
+                sep=",",
+                mode="a",
+            )
+            os.remove("data/tmp.csv")
+        if not created:
+            tmp.to_csv(
+                "data/tmp.csv",
+                index=False,
+                header=not os.path.exists("data/tmp.csv"),
+                sep=",",
+                mode="a",
+            )
     except Exception as e:
         return {
             "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -125,7 +181,7 @@ def calc_sea_level_pressure(temp_c, pressure_hpa, humidity_percent, altitude_m):
     # Hypsometric 方程：p0 = p * exp(g*z / (Rd*Tv_mean))
     p0 = pressure_hpa * math.exp(g * altitude_m / (Rd * Tv_mean))
 
-    return round(p0,2)
+    return round(p0, 2)
 
 
 # dew_point
@@ -153,4 +209,4 @@ def calc_dew_point(temp_c, humidity_percent):
 
     # 计算露点
     dew_point = (b * gamma) / (a - gamma)
-    return round(dew_point,2)
+    return round(dew_point, 2)
