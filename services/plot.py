@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import matplotlib
+import matplotlib.dates
 
 # 使用无GUI后端，避免在子线程上创建窗口（macOS 下会崩溃）
 matplotlib.use("Agg", force=True)
@@ -14,14 +15,15 @@ import uuid
 logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
 
 # 将x轴的时间格式化为月-日 时:分
-date_format = dates.DateFormatter("%m-%d %H:%M", tz="Asia/Shanghai")
+# date_format = dates.DateFormatter("%m-%d %H:%M", tz="Asia/Shanghai")
+date_format = dates.DateFormatter("%m-%d %H:%M")
 
 params = [
     ("temperature", "Temperature", "°C", "red"),
     ("pressure", "Pressure", "hPa", "blue"),
     ("relative_humidity", "Relative Humidity", "%", "green"),
-    ("dew_point","Dew Temperature","°C","red"),
-    ("sea_level_pressure","Sea Pressure", "hPa", "blue"),
+    ("dew_point", "Dew Temperature", "°C", "red"),
+    ("sea_level_pressure", "Sea Pressure", "hPa", "blue"),
     ("wind_speed", "Wind Speed", "m/s", "yellow"),
     ("wind_direction", "Wind Direction", "°", "black"),
 ]
@@ -38,29 +40,29 @@ def _select_plot_params(columns):
     return [PARAM_MAP[c] for c in columns if c in PARAM_MAP]
 
 
-def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
+def _read_station_data(station_name, dates, selected_cols, sep=","):
     """
     读取站点在指定日期的CSV数据，合并并完成基本清洗/转换。
 
     健壮性增强：
     - station_name 必须为非空字符串
     - dates_to_read 必须为非空可迭代，且元素可解析为 YYYY-MM-DD
-    - 若未读取到任何文件，返回包含 "time" 与所需列的空 DataFrame，避免后续 KeyError
-    - 仅读取需要的列：time_utc + selected_cols
+    - 若未读取到任何文件，返回包含 "time_local" 与所需列的空 DataFrame，避免后续 KeyError
+    - 仅读取需要的列：time_local + selected_cols
     - 将 "NULL" 作为缺失值读取；转换为带时区的 datetime 并排序
     """
     # 参数校验与归一化
     if not isinstance(station_name, str) or not station_name.strip():
         logger.warning("station_name 非法或为空: %r", station_name)
-        return pd.DataFrame({"time": [], **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"time_local": [], **{c: [] for c in selected_cols}})
 
-    if not dates_to_read:
-        logger.warning("dates_to_read 为空或未提供: %r", dates_to_read)
-        return pd.DataFrame({"time": [], **{c: [] for c in selected_cols}})
+    # if not dates:
+    #     logger.warning("dates 为空或未提供: %r", dates)
+    #     return pd.DataFrame({"time_local": [], **{c: [] for c in selected_cols}})
 
     # 过滤非法日期字符串
     valid_days = []
-    for d in dates_to_read:
+    for d in dates:
         try:
             day = pd.to_datetime(d).strftime("%Y-%m-%d")
             valid_days.append(day)
@@ -68,10 +70,10 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
             logger.warning("忽略无法解析的日期: %r", d)
 
     if not valid_days:
-        logger.warning("dates_to_read 无有效日期: %r", dates_to_read)
-        return pd.DataFrame({"time": [], **{c: [] for c in selected_cols}})
+        logger.warning("dates 无有效日期: %r", dates)
+        return pd.DataFrame({"time_local": [], **{c: [] for c in selected_cols}})
 
-    usecols_allow = set(["time_utc", *selected_cols])
+    usecols_allow = set(["time_local", *selected_cols])
     frames = []
     missing = []
     for day in valid_days:
@@ -92,17 +94,16 @@ def _read_station_data(station_name, dates_to_read, selected_cols, sep, zone):
     if not frames:
         if missing:
             logger.warning("未找到任何匹配的数据文件: %s", ", ".join(missing))
-        return pd.DataFrame({"time": [], **{c: [] for c in selected_cols}})
+        return pd.DataFrame({"time_local": [], **{c: [] for c in selected_cols}})
 
     df = pd.concat(frames, ignore_index=True, sort=False)
 
-    if "time_utc" in df.columns:
-        dt = pd.to_datetime(df["time_utc"], utc=True)
-        df["time"] = dt.dt.tz_convert(zone)
-        df.sort_values("time", inplace=True)
+    if "time_local" in df.columns:
+        df["time_local"] = pd.to_datetime(df["time_local"], errors="coerce")
+        df.sort_values("time_local", inplace=True)
     else:
-        # 缺失 time_utc 列时，补充 NaT，保持列存在
-        df["time"] = pd.NaT
+        # 缺失 time_local 列时，补充 NaT，保持列存在
+        df["time_local"] = pd.NaT
 
     for col in selected_cols:
         if col in df.columns:
@@ -124,14 +125,13 @@ def _make_plots(plot_df, plot_params, station_name, title_suffix):
     """统一的绘图函数：使用matplotlib直接绘制以提升速度。"""
     if len(plot_params) == 0:
         raise ValueError("No valid columns to plot.")
-
     n = len(plot_params)
     fig_h = 5 * n if n > 1 else 9
     fig, axes = plt.subplots(n, 1, figsize=(12, fig_h), sharex=True)
     axes_list = axes if n > 1 else [axes]
 
     for ax, (column, title, unit, color) in zip(axes_list, plot_params):
-        ax.plot(plot_df["time"], plot_df[column], color=color, linewidth=1.2)
+        ax.plot(plot_df["time_local"], plot_df[column], color=color, linewidth=1.2)
         ax.set_title(title)
         ax.set_ylabel("")
         ax.yaxis.set_major_formatter(
@@ -205,7 +205,7 @@ def draw_last_hour(
         actual_span = 0
 
     warning = ""
-    
+
     if filtered_count < 5:
         warning = f"数据量不足（{filtered_count}条）"
         logger.warning(warning)
@@ -233,19 +233,13 @@ def draw_specific_day(
     # 读取特定日期下的数据数据
     if specific_date is None:
         today = datetime.now().strftime("%Y-%m-%d")
-        # yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     else:
         today = specific_date
-        # yesterday = (pd.to_datetime(specific_date) - timedelta(days=1)).strftime(
-        #     "%Y-%m-%d"
-        # )
 
     plot_params = _select_plot_params(columns)
     selected_cols = [name for name, *_ in plot_params]
 
-    df = _read_station_data(
-        station_name, [today], selected_cols, sep=sep, zone=zone
-    )
+    df = _read_station_data(station_name, [today], selected_cols, sep=sep, zone=zone)
 
     # 若未读取到任何数据文件，直接不绘制图像
     if df.empty:
@@ -267,9 +261,7 @@ def draw_specific_day(
             )
             end_date = start_date + timedelta(days=1)
 
-            time_filtered = df[
-                (df["time"] >= start_date) & (df["time"] < end_date)
-            ]
+            time_filtered = df[(df["time"] >= start_date) & (df["time"] < end_date)]
 
             filtered_count = len(time_filtered)
             if filtered_count == 0:
@@ -304,7 +296,42 @@ def draw_specific_day(
     return file_name, warning, image_id
 
 
-# Test Code
-# draw_last_hour("station_2", ["temperature", "pressure", "relative_humidity"], 2)
-# draw_specific_day("station_2",["temperature","pressure","relative_humidity"],"2025-08-21")
-# draw_specific_day("1",["temperature","pressure","relative_humidity"],"2025-10-12")
+# 绘制图像
+def draw(station_name: str, date: str | None = None, params: str | None = None):
+
+    if date:
+        date = pd.to_datetime(date).strftime("%Y-%m-%d")
+    if not date:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    plot_params = _select_plot_params(params)
+    selected_cols = [name for name, *_ in plot_params]
+
+    df = _read_station_data(station_name, [date], selected_cols)
+
+    file_name, image_id = _make_plots(df, plot_params, station_name, "test")
+    return file_name, image_id
+    # # 创建一天完整时间范围（用于固定横轴）
+    # start = pd.Timestamp(f"{date} 00:00:00")
+    # end = pd.Timestamp(f"{date} 23:59:59")
+
+    # # 绘制散点图
+    # plt.figure(figsize=(10, 5))
+    # plt.scatter(df["time_local"], df["temperature"], color="tab:blue", label="Temperature")
+
+    # # 设置横轴范围为整天（00:00–23:59）
+    # plt.xlim(start, end)
+
+    # # 格式化横轴时间显示
+    # plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M"))
+    # plt.gca().xaxis.set_major_locator(matplotlib.dates.HourLocator(interval=2))  # 每2小时显示一个刻度
+    # plt.gcf().autofmt_xdate()
+
+    # # 标签与标题
+    # plt.xlabel("Local Time (UTC+8)")
+    # plt.ylabel("Temperature (°C)")
+    # plt.title(f"Temperature of {station_name} on {date}")
+    # plt.legend()
+    # plt.grid(True, linestyle="--", alpha=0.6)
+    # plt.tight_layout()
+    # plt.show()

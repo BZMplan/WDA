@@ -81,11 +81,6 @@ async def api_get_info(
             station_name, [time_utc], selected_cols, sep=sep, zone=zone
         )
 
-        # print(df)
-        #            time_utc  temperature  pressure  ...  sea_level_pressure  dew_point                      time
-        # 0  2025-11-01 08:32         15.3    1013.4  ...             1016.69       9.47 2025-11-01 16:32:00+08:00
-        # 1  2025-11-01 08:33         15.3    1013.4  ...             1016.69       9.47 2025-11-01 16:33:00+08:00
-
     except FileNotFoundError:
         return {
             "status": status.HTTP_404_NOT_FOUND,
@@ -133,81 +128,42 @@ async def api_get_info(
 # 发送请求获取对应图片的url
 @router.get("/api/get/image")
 async def api_get_image(
-    mode: str,
     station_name: str,
-    param: Union[int, str],
-    elements: str = Query(...),
+    date: str,
+    params: str = Query(...),
 ):
 
     # 列参数解析：优先 JSON；失败时支持以逗号分隔
     try:
-        element = json.loads(elements)
+        param = json.loads(params)
     except json.JSONDecodeError:
-        element = [c.strip() for c in elements.split(",") if c.strip()]
+        param = [c.strip() for c in params.split(",") if c.strip()]
 
     # 校验列名
-    for e in element:
-        if e not in ALLOWED_CLASSES:
+    for p in param:
+        if p not in ALLOWED_CLASSES:
             return {
                 "status": status.HTTP_400_BAD_REQUEST,
-                "message": {f"Invalid class: {e}", f"Legal class: {ALLOWED_CLASSES}"},
+                "message": {f"Invalid class: {p}", f"Legal class: {ALLOWED_CLASSES}"},
             }
 
-    if mode == "date":
-        # 处理日期参数，确保是字符串格式的日期
-        param = (
-            datetime.strptime(param, "%Y-%m-%d") if isinstance(param, str) else param
-        ).strftime("%Y-%m-%d")
+    # 处理日期参数，确保是字符串格式的日期
+    date = (
+        datetime.strptime(date, "%Y-%m-%d") if isinstance(date, str) else date
+    ).strftime("%Y-%m-%d")
 
-        # 异步绘图，防止阻塞线程
-        file_name, info, image_id = await asyncio.to_thread(
-            draw.draw_specific_day,
-            station_name,
-            element,
-            param,
-            sep=",",
-            zone="Asia/Shanghai",
-        )
+    # 异步绘图，防止阻塞线程
+    file_name, image_id = await asyncio.to_thread(draw.draw, station_name, date, param)
 
-        if not file_name:
-            return {"url": None, "image_id": None, "info": info}
+    if not file_name:
+        return {"image_id": None, "url": None}
 
-        image_token = str(uuid.uuid4())
-        tools.one_time_image_tokens[image_token] = (time.time(), file_name)
-        return {
-            "url": f"http://127.0.0.1:7763/image?image_token={image_token}",
-            "image_id": image_id,
-            "info": info,
-        }
-    elif mode == "hour":
-        param = int(param) if not isinstance(param, int) else param
-
-        # 异步绘图，防止阻塞线程
-        file_name, info, image_id = await asyncio.to_thread(
-            draw.draw_last_hour,
-            station_name,
-            element,
-            param,
-            sep=",",
-            zone="Asia/Shanghai",
-        )
-
-        if not file_name:
-            return {"url": None, "image_id": None, "info": info}
-
-        image_token = str(uuid.uuid4())
-        tools.one_time_image_tokens[image_token] = (time.time(), file_name)
-        return {
-            "url": f"http://127.0.0.1:7763/image?image_token={image_token}",
-            "image_id": image_id,
-            "info": info,
-        }
-    else:
-        logger.error(f"Wrong Mode: {mode}, need 'date' or 'hour'")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Wrong Mode: {mode}, need 'date' or 'hour'",
-        )
+    image_token = str(uuid.uuid4())
+    tools.one_time_image_tokens[image_token] = (time.time(), file_name)
+    return {
+        "image_id": image_id,
+        "url": f"http://127.0.0.1:7763/image?image_token={image_token}",
+    }
 
 
 # 显示图片资源
