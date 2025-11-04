@@ -88,7 +88,7 @@ async def api_upload(item: tools.element):
         # 替换NULL为NaN（方便后续计算）
         df[numeric_cols] = df[numeric_cols].replace("NULL", pd.NA)
 
-        #按站点和分钟分组，计算平均值，保留两位小数
+        # 按站点和分钟分组，计算平均值，保留两位小数
         tmp = (
             df.groupby(["station_name", "time_utc", "time_local"])[numeric_cols]
             .mean()

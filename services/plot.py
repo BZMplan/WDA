@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import matplotlib
-import matplotlib.dates
 
 # 使用无GUI后端，避免在子线程上创建窗口（macOS 下会崩溃）
 matplotlib.use("Agg", force=True)
@@ -33,11 +32,11 @@ params = [
 PARAM_MAP = {name: (name, title, unit, color) for name, title, unit, color in params}
 
 
-def _select_plot_params(columns):
+def _select_plot_params(plot_params):
     """根据传入列名筛选参数配置；为空或None则返回全部。"""
-    if not columns:
+    if not plot_params:
         return params
-    return [PARAM_MAP[c] for c in columns if c in PARAM_MAP]
+    return [PARAM_MAP[p] for p in plot_params if p in PARAM_MAP]
 
 
 def _read_station_data(station_name, dates, selected_cols, sep=","):
@@ -297,12 +296,7 @@ def draw_specific_day(
 
 
 # 绘制图像
-def draw(station_name: str, date: str | None = None, params: str | None = None):
-
-    if date:
-        date = pd.to_datetime(date).strftime("%Y-%m-%d")
-    if not date:
-        date = datetime.now().strftime("%Y-%m-%d")
+def draw(station_name: str, date: str = None, params: str = None):
 
     plot_params = _select_plot_params(params)
     selected_cols = [name for name, *_ in plot_params]

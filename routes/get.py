@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
 from typing import List, Union
@@ -42,57 +42,20 @@ def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFram
 @router.get("/api/get/info")
 async def api_get_info(
     station_name: str,
-    timestamp: int | None = None,
-    sep=",",
-    zone="Asia/Shanghai",
-    elements: str = Query(...),
+    time_local: str | None = None,
 ):
-    time_utc = (
-        time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp))
-        if timestamp
-        else time.strftime("%Y-%m-%d %H:%M", time.localtime(int(time.time())))
-    )
+    if time_local:
+        date = pd.to_datetime(time_local).strftime("%Y-%m-%d %H:%M")
+    else:
+        date = pd.to_datetime(datetime.now()).strftime("%Y-%m-%d %H:%M")
 
-    try:
-        element = json.loads(elements)
-    except json.JSONDecodeError:
-        element = [e.strip() for e in elements.split(",") if e.strip()]
+    time_utc = (pd.to_datetime(date) + timedelta(hours=-8)).strftime("%Y-%m-%d %H:%M")
 
-    # 校验列名
-    if len(element) == 1 and element[0].lower() == "all":
-        element = ALLOWED_CLASSES
+    plot_params = draw._select_plot_params(None)
 
-    errors = []
-    for e in element:
-        if e not in ALLOWED_CLASSES:
-            errors.append(e)
-    if len(errors) != 0:
-        return {
-            "status": status.HTTP_400_BAD_REQUEST,
-            "message": {f"Invalid class: {errors}", f"Legal class: {ALLOWED_CLASSES}"},
-            "data": None,
-        }
-
-    plot_params = draw._select_plot_params(element)
     selected_cols = [name for name, *_ in plot_params]
 
-    try:
-        df = draw._read_station_data(
-            station_name, [time_utc], selected_cols, sep=sep, zone=zone
-        )
-
-    except FileNotFoundError:
-        return {
-            "status": status.HTTP_404_NOT_FOUND,
-            "message": "未找到数据文件",
-            "data": None,
-        }
-    except Exception as e:
-        return {
-            "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "message": f"读取csv文件失败: {e}",
-            "data": None,
-        }
+    df = draw._read_station_data(station_name, [date], selected_cols)
 
     def _native(value):
         if pd.isna(value):
@@ -106,14 +69,15 @@ async def api_get_info(
             "data": None,
         }
 
-    result = result = {
+    result = {
         "station_name": station_name,
         "time_utc": time_utc,
+        "time_local": time_local,
     }
-    if timestamp is None:
+    if time_local is None:
         row = df.tail[1].iloc[0]
     else:
-        mask = df["time_utc"] == time_utc
+        mask = df["time_local"] == time_local
         if mask.any():
             row = df.loc[mask].iloc[-1]
         else:
@@ -129,15 +93,28 @@ async def api_get_info(
 @router.get("/api/get/image")
 async def api_get_image(
     station_name: str,
-    date: str,
+    date: str = None,
     params: str = Query(...),
 ):
+    if date:
+        try:
+            date = pd.to_datetime(date).strftime("%Y-%m-%d")
+        except Exception as e:
+            return {
+                "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "message": f"Wrong date: {date}",
+            }
+    if not date:
+        date = datetime.now().strftime("%Y-%m-%d")
 
     # 列参数解析：优先 JSON；失败时支持以逗号分隔
     try:
         param = json.loads(params)
     except json.JSONDecodeError:
         param = [c.strip() for c in params.split(",") if c.strip()]
+
+    if len(param) == 1 and param[0] == "all":
+        param = ALLOWED_CLASSES
 
     # 校验列名
     for p in param:
@@ -146,11 +123,6 @@ async def api_get_image(
                 "status": status.HTTP_400_BAD_REQUEST,
                 "message": {f"Invalid class: {p}", f"Legal class: {ALLOWED_CLASSES}"},
             }
-
-    # 处理日期参数，确保是字符串格式的日期
-    date = (
-        datetime.strptime(date, "%Y-%m-%d") if isinstance(date, str) else date
-    ).strftime("%Y-%m-%d")
 
     # 异步绘图，防止阻塞线程
     file_name, image_id = await asyncio.to_thread(draw.draw, station_name, date, param)
