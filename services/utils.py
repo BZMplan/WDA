@@ -5,8 +5,8 @@ import math
 import os
 import time
 
-
 logger = logging.getLogger("uvicorn.app")
+
 
 class element(BaseModel):
     station_name: Optional[str] = None  # 站点名称
@@ -16,9 +16,6 @@ class element(BaseModel):
     relative_humidity: Optional[float] = None  # 相对湿度
     wind_speed: Optional[float] = None  # 风速
     wind_direction: Optional[float] = None  # 风向
-    ground_temperature: Optional[float] = None  # 地温
-    evaporation_capacity: Optional[float] = None  # 蒸发量
-    sunshine_duration: Optional[float] = None  # 日照时间
 
     class Config:
         extra = "ignore"
@@ -30,22 +27,8 @@ class data(BaseModel):
     element: str = "all"
 
 
-# tokens = ["27ecb87a-1c4c-4b24-940d-2ad04b4dc5a7"]
-
-# oauth2_scheme = OAuth2PasswordBearer("token")
-
 # 后续将存贮在数据库里
 one_time_image_tokens = {}
-
-
-# def verify(token: str = Depends(oauth2_scheme)):
-#     if token not in tokens:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid or expired tokens",
-#             headers={"WWW-Authenticate": "Bearer"},
-#         )
-#     return token
 
 
 def clean_expired_image_tokens():
@@ -62,8 +45,10 @@ def clean_expired_image_tokens():
         for image_token in expired_tokens:
             # 删除token和对应的文件
             _, resource_path = one_time_image_tokens[image_token]
-            os.remove(os.path.join("image", resource_path))
-            logger.info(f"图片'{os.path.join("image",resource_path)}'过期，已删除")
+            os.remove(os.path.join("images", resource_path))
+            # logger.info(f"图片'{os.path.join("images",resource_path)}'过期，已删除")
+            img_path = os.path.join("images", resource_path)
+            logger.info(f"图片'{img_path}'过期,已删除")
             del one_time_image_tokens[image_token]
 
 
@@ -73,5 +58,3 @@ def clean_nan_values(data: dict) -> dict:
         key: None if isinstance(value, float) and math.isnan(value) else value
         for key, value in data.items()
     }
-
-
