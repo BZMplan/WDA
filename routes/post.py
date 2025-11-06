@@ -1,18 +1,10 @@
-from services import utils as tools
 from fastapi import APIRouter, status
+import config as cfg
 import os
 import time
 import pandas as pd
 import math
 
-# 可上传的气象元素字段（与模型 tools.element 对齐）
-ELEMENT_FIELDS = [
-    "temperature",
-    "pressure",
-    "relative_humidity",
-    "wind_speed",
-    "wind_direction",
-]
 
 # 设置路由
 router = APIRouter(
@@ -22,7 +14,7 @@ router = APIRouter(
 
 # 上传站点数据
 @router.post("/api/upload")
-async def api_upload(item: tools.element):
+async def api_upload(item: cfg.meteorological_elements):
     station_name = item.station_name
     timestamp = item.timestamp if item.timestamp is not None else int(time.time())
 
@@ -30,7 +22,7 @@ async def api_upload(item: tools.element):
     file_name = f"{station_name}_{day}.csv"
     file_path = os.path.join("data", file_name)
 
-    element_values = {field: getattr(item, field) for field in ELEMENT_FIELDS}
+    element_values = {field: getattr(item, field) for field in cfg.ALLOWED_ELEMENTS}
 
     # 计算海压
     sea_level_pressure = None
@@ -64,7 +56,7 @@ async def api_upload(item: tools.element):
         "time_local": time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp)),
         **{
             k: (element_values[k] if element_values[k] is not None else "NULL")
-            for k in ELEMENT_FIELDS
+            for k in cfg.ALLOWED_ELEMENTS
         },
         "sea_level_pressure": (
             sea_level_pressure if sea_level_pressure is not None else "NULL"
@@ -75,22 +67,12 @@ async def api_upload(item: tools.element):
     try:
         df = pd.DataFrame([row])
 
-        numeric_cols = [
-            "temperature",
-            "pressure",
-            "relative_humidity",
-            "wind_speed",
-            "wind_direction",
-            "sea_level_pressure",
-            "dew_point",
-        ]
-
         # 替换NULL为NaN（方便后续计算）
-        df[numeric_cols] = df[numeric_cols].replace("NULL", pd.NA)
+        df[cfg.ALLOWED_ELEMENTS] = df[cfg.ALLOWED_ELEMENTS].replace("NULL", pd.NA)
 
         # 按站点和分钟分组，计算平均值，保留两位小数
         tmp = (
-            df.groupby(["station_name", "time_utc", "time_local"])[numeric_cols]
+            df.groupby(["station_name", "time_utc", "time_local"])[cfg.ALLOWED_ELEMENTS]
             .mean()
             .reset_index()
             .round(2)
@@ -112,7 +94,9 @@ async def api_upload(item: tools.element):
 
         if tmp["time_utc"].values != tmp_df["time_utc"].iloc[-1]:
             df = (
-                tmp_df.groupby(["station_name", "time_utc", "time_local"])[numeric_cols]
+                tmp_df.groupby(["station_name", "time_utc", "time_local"])[
+                    cfg.ALLOWED_ELEMENTS
+                ]
                 .mean()
                 .reset_index()
                 .round(2)

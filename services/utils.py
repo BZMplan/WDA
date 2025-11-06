@@ -1,6 +1,4 @@
-from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel
+
 import logging
 import math
 import os
@@ -8,31 +6,8 @@ import time
 
 logger = logging.getLogger("uvicorn.app")
 
-
-class element(BaseModel):
-    station_name: Optional[str] = None  # 站点名称
-    timestamp: Optional[int] = None  # 时间戳
-    time_utc: Optional[datetime] = None
-    time_local: Optional[datetime] = None
-    temperature: Optional[float] = None  # 气温
-    pressure: Optional[float] = None  # 气压
-    relative_humidity: Optional[float] = None  # 相对湿度
-    wind_speed: Optional[float] = None  # 风速
-    wind_direction: Optional[float] = None  # 风向
-
-    class Config:
-        extra = "ignore"
-
-
-class data(BaseModel):
-    station_name: str
-    timestamp: int = None
-    element: str = "all"
-
-
 # 后续将存贮在数据库里
 one_time_image_tokens = {}
-
 
 def clean_expired_image_tokens():
 

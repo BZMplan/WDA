@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
-from typing import List
 from services import utils as tools, plot as draw
+import config as cfg
 import uuid
 import json
 import time
@@ -10,17 +10,6 @@ import pandas as pd
 import os
 import logging
 import asyncio
-
-# 常量：允许的气象元素
-ALLOWED_CLASSES: List[str] = [
-    "temperature",
-    "pressure",
-    "relative_humidity",
-    "dew_point",
-    "sea_level_pressure",
-    "wind_speed",
-    "wind_direction",
-]
 
 # 设置路由
 router = APIRouter(
@@ -41,7 +30,7 @@ def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFram
 
 @router.get("/api/get/info")
 async def api_get_info(
-    item: tools.element,
+    item: cfg.meteorological_elements,
 ):
 
     if item.time_local:
@@ -53,9 +42,9 @@ async def api_get_info(
     station_name = item.station_name
     time_utc = (pd.to_datetime(date) + timedelta(hours=-8)).strftime("%Y-%m-%d %H:%M")
 
-    plot_params = draw._select_plot_params(None)
+    plot_elements = draw._select_plot_elements(None)
 
-    selected_cols = [name for name, *_ in plot_params]
+    selected_cols = [name for name, *_ in plot_elements]
 
     df = draw._read_station_data(station_name, [date], selected_cols)
 
@@ -100,7 +89,7 @@ async def api_get_info(
 async def api_get_image(
     station_name: str,
     date: str = None,
-    params: str = Query(...),
+    elements: str = Query(...),
 ):
     if date:
         try:
@@ -115,23 +104,28 @@ async def api_get_image(
 
     # 列参数解析：优先 JSON；失败时支持以逗号分隔
     try:
-        param = json.loads(params)
+        element = json.loads(elements)
     except json.JSONDecodeError:
-        param = [c.strip() for c in params.split(",") if c.strip()]
+        element = [c.strip() for c in elements.split(",") if c.strip()]
 
-    if len(param) == 1 and param[0] == "all":
-        param = ALLOWED_CLASSES
+    if len(element) == 1 and element[0] == "all":
+        element = cfg.ALLOWED_ELEMENTS
 
     # 校验列名
-    for p in param:
-        if p not in ALLOWED_CLASSES:
+    for p in element:
+        if p not in cfg.ALLOWED_ELEMENTS:
             return {
                 "status": status.HTTP_400_BAD_REQUEST,
-                "message": {f"Invalid class: {p}", f"Legal class: {ALLOWED_CLASSES}"},
+                "message": {
+                    f"Invalid class: {p}",
+                    f"Legal class: {cfg.ALLOWED_ELEMENTS}",
+                },
             }
 
     # 异步绘图，防止阻塞线程
-    file_name, image_id = await asyncio.to_thread(draw.draw, station_name, date, param)
+    file_name, image_id = await asyncio.to_thread(
+        draw.draw, station_name, date, element
+    )
 
     if not file_name:
         return {"image_id": None, "url": None}
