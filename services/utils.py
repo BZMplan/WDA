@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 import logging
@@ -11,6 +12,8 @@ logger = logging.getLogger("uvicorn.app")
 class element(BaseModel):
     station_name: Optional[str] = None  # 站点名称
     timestamp: Optional[int] = None  # 时间戳
+    time_utc: Optional[datetime] = None
+    time_local: Optional[datetime] = None
     temperature: Optional[float] = None  # 气温
     pressure: Optional[float] = None  # 气压
     relative_humidity: Optional[float] = None  # 相对湿度

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
-from typing import List, Union
+from typing import List
 from services import utils as tools, plot as draw
 import uuid
 import json
@@ -41,14 +41,16 @@ def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFram
 
 @router.get("/api/get/info")
 async def api_get_info(
-    station_name: str,
-    time_local: str | None = None,
+    item: tools.element,
 ):
-    if time_local:
-        date = pd.to_datetime(time_local).strftime("%Y-%m-%d %H:%M")
+
+    if item.time_local:
+        time_local = item.time_local.strftime("%Y-%m-%d %H:%M")
+        date = time_local
     else:
         date = pd.to_datetime(datetime.now()).strftime("%Y-%m-%d %H:%M")
 
+    station_name = item.station_name
     time_utc = (pd.to_datetime(date) + timedelta(hours=-8)).strftime("%Y-%m-%d %H:%M")
 
     plot_params = draw._select_plot_params(None)
@@ -81,7 +83,11 @@ async def api_get_info(
         if mask.any():
             row = df.loc[mask].iloc[-1]
         else:
-            return {"status": status.HTTP_404_NOT_FOUND, "message": "无数据"}
+            return {
+                "status": status.HTTP_404_NOT_FOUND,
+                "message": "无数据",
+                "data": None,
+            }
 
     for col in selected_cols:
         result[col] = _native(row.get(col))

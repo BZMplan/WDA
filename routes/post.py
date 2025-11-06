@@ -26,8 +26,8 @@ async def api_upload(item: tools.element):
     station_name = item.station_name
     timestamp = item.timestamp if item.timestamp is not None else int(time.time())
 
-    today = time.strftime("%Y-%m-%d", time.localtime(timestamp))
-    file_name = f"{station_name}_{today}.csv"
+    day = time.strftime("%Y-%m-%d", time.localtime(timestamp))
+    file_name = f"{station_name}_{day}.csv"
     file_path = os.path.join("data", file_name)
 
     element_values = {field: getattr(item, field) for field in ELEMENT_FIELDS}
