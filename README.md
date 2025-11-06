@@ -2,6 +2,7 @@
 
 这是一个基于 **FastAPI** 的气象站数据上传、查询和数据可视化服务。支持上传气象站数据，查询各类气象要素，并生成对应时间段的曲线图。
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/BZMplan/WDA)
 ---
 
 ## 功能介绍
