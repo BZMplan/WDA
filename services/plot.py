@@ -26,16 +26,6 @@ plt.rcParams["axes.unicode_minus"] = False
 # 将x轴的时间格式化为月-日 时:分
 datetime_format = dates.DateFormatter("%m-%d %H:%M")
 
-# elements = [
-#     ("temperature", "气温", "°C", "red"),
-#     ("pressure", "压强", "hPa", "blue"),
-#     ("relative_humidity", "相对湿度", "%", "green"),
-#     ("dew_point", "露点", "°C", "red"),
-#     ("sea_level_pressure", "海压", "hPa", "blue"),
-#     ("wind_speed", "风速", "m/s", "yellow"),
-#     ("wind_direction", "风向", "°", "black"),
-# ]
-
 # 映射：列名 -> 参数配置，便于快速筛选
 ELEMENT_MAP = {
     name: (name, title, unit, color) for name, title, unit, color in cfg.ELEMENTS
@@ -138,13 +128,13 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
 
     for ax, (column, title, unit, color) in zip(axes_list, plot_elements):
         ax.plot(plot_df["time_local"], plot_df[column], color=color, linewidth=1.2)
-        ax.set_title(title,fontsize=18)
+        ax.set_title(title, fontsize=18)
         ax.set_ylabel("")
         ax.yaxis.set_major_formatter(
             FuncFormatter(lambda x, pos, unit=unit: f"{x:.2f} {unit}")
         )
         ax.grid(alpha=0.7)
-        
+
     axes_list[-1].set_xlabel("")
     axes_list[-1].xaxis.set_major_formatter(datetime_format)
 

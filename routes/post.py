@@ -127,6 +127,48 @@ async def api_upload(item: cfg.meteorological_elements):
     return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
 
 
+@router.post("/sensorlog")
+async def sensorlog(item: cfg.location):
+    server_timestamp = int(time.time())
+    day = time.strftime("%Y-%m-%d", time.localtime(item.locationTimestamp_since1970))
+    file_name = f"{item.deviceID}_{day}.csv"
+    file_path = os.path.join("data/sensorlog", file_name)
+
+    row = {
+        "device_name": item.deviceID,
+        "server_timestamp": server_timestamp,
+        "device_timestamp": item.locationTimestamp_since1970,
+        "time_utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(server_timestamp)),
+        "time_local": time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(server_timestamp)
+        ),
+        "altitude": item.locationAltitude,
+        "latitude": item.locationLatitude,
+        "longitude": item.locationLongitude,
+        "horizontal_accuracy": item.locationHorizontalAccuracy,
+        "speed": item.locationSpeed,
+    }
+
+    try:
+        df = pd.DataFrame([row])
+
+        df.to_csv(
+            file_path,
+            index=False,
+            header=not os.path.exists(file_path),
+            sep=",",
+            mode="a",
+        )
+    except Exception as e:
+        return {
+            "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "message": f"write data failed: {e}",
+            "data": None,
+        }
+
+    return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
+
+
 # sea_level_pressure
 def calc_sea_level_pressure(temp_c, pressure_hpa, humidity_percent, altitude_m):
     """

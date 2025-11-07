@@ -8,16 +8,12 @@ import json
 import time
 import pandas as pd
 import os
-import logging
 import asyncio
 
 # 设置路由
 router = APIRouter(
     tags=["get"],  # 在 OpenAPI 文档中为这些路由添加一个标签
 )
-
-# 初始化日志
-logger = logging.getLogger("uvicorn.app")
 
 
 # 弃用，只能选择一个或者全部要素，可用性不高
