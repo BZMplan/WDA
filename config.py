@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from fastapi import Query
 from pydantic import BaseModel, field_validator
 import time
 
@@ -52,7 +53,7 @@ class location(BaseModel):
 
 
 class meteorological_elements(BaseModel):
-    station_name: Optional[str] = None  # 站点名称
+    station_name: str = None  # 站点名称
     timestamp: Optional[int] = None  # 时间戳
     time_utc: Optional[datetime] = None  # utc时间
     time_local: Optional[datetime] = None  # 本地时间
@@ -64,15 +65,15 @@ class meteorological_elements(BaseModel):
     wind_speed: Optional[float] = None  # 风速
     wind_direction: Optional[float] = None  # 风向
 
-    @field_validator("timestamp")
-    @classmethod
-    def check_timestamp(cls, v):
-        now = int(time.time())
-        if v is None:
-            return v
-        if abs(now - v) > 10:
-            raise ValueError("timestamp may be wrong, please check it.")
-        return v
+    # @field_validator("timestamp")
+    # @classmethod
+    # def check_timestamp(cls, v):
+    #     now = int(time.time())
+    #     if v is None:
+    #         return v
+    #     if abs(now - v) > 10:
+    #         raise ValueError("timestamp may be wrong, please check it.")
+    #     return v
 
     class Config:
         extra = "ignore"

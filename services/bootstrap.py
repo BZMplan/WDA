@@ -8,7 +8,7 @@ from typing import Iterable
 
 logger = logging.getLogger("uvicorn.app")
 
-
+# 初始化文件夹
 def setup_dirs(
     base: os.PathLike | str = ".", names: Iterable[str] = ("data", "images", "logs")
 ) -> None:

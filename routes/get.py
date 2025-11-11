@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, Response, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
 from services import utils as tools, plot as draw
 import config as cfg
@@ -16,17 +16,11 @@ router = APIRouter(
 )
 
 
-# 弃用，只能选择一个或者全部要素，可用性不高
-def _read_station_file(station_name: str, day: str, usecols=None) -> pd.DataFrame:
-    path = os.path.join("data", f"{station_name}_{day}.csv")
-    if not os.path.exists(path):
-        raise FileNotFoundError(path)
-    return pd.read_csv(path, sep=",", usecols=usecols)
-
-
+# 获取实时站点数据
+# 改用params
 @router.get("/api/get/info")
 async def api_get_info(
-    item: cfg.meteorological_elements,
+    item: cfg.meteorological_elements = Depends(),
 ):
 
     if item.time_local:
@@ -87,6 +81,7 @@ async def api_get_image(
     date: str = None,
     elements: str = Query(...),
 ):
+
     if date:
         try:
             date = pd.to_datetime(date).strftime("%Y-%m-%d")

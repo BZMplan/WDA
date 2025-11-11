@@ -126,7 +126,7 @@ async def api_upload(item: cfg.meteorological_elements):
 
     return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
 
-
+# 接收senerlog软件上传的数据
 @router.post("/sensorlog")
 async def sensorlog(item: cfg.location):
     server_timestamp = int(time.time())
@@ -169,7 +169,7 @@ async def sensorlog(item: cfg.location):
     return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
 
 
-# sea_level_pressure
+# 计算海平面气压
 def calc_sea_level_pressure(temp_c, pressure_hpa, humidity_percent, altitude_m):
     """
     计算海平面气压（hPa）
@@ -210,7 +210,7 @@ def calc_sea_level_pressure(temp_c, pressure_hpa, humidity_percent, altitude_m):
     return round(p0, 2)
 
 
-# dew_point
+# 计算露点温度
 def calc_dew_point(temp_c, humidity_percent):
     """
     计算露点温度（℃）
