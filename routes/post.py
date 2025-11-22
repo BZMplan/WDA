@@ -1,4 +1,7 @@
 from fastapi import APIRouter, status
+from services.utils import create_table, insert_record, table_exists
+
+import logging
 import config as cfg
 import os
 import time
@@ -11,6 +14,8 @@ router = APIRouter(
     tags=["post"],  # 在 OpenAPI 文档中为这些路由添加一个标签
 )
 
+logger = logging.getLogger("uvicorn.app")
+
 
 # 上传站点数据
 @router.post("/api/upload")
@@ -18,9 +23,7 @@ async def api_upload(item: cfg.meteorological_elements):
     station_name = item.station_name
     timestamp = item.timestamp if item.timestamp is not None else int(time.time())
 
-    day = time.strftime("%Y-%m-%d", time.localtime(timestamp))
-    file_name = f"{station_name}_{day}.csv"
-    file_path = os.path.join("data", file_name)
+    day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
 
     element_values = {field: getattr(item, field) for field in cfg.ALLOWED_ELEMENTS}
 
@@ -51,9 +54,10 @@ async def api_upload(item: cfg.meteorological_elements):
     # 构建写入行：元素为空用 "NULL" 占位
     row = {
         "station_name": station_name,
-        "timestamp": timestamp,
-        "time_utc": time.strftime("%Y-%m-%d %H:%M", time.gmtime(timestamp)),
-        "time_local": time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp)),
+        # "timestamp": timestamp,
+        # 兼容SQLite的DATETIME数据类型
+        "time_utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(timestamp)),
+        "time_local": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)),
         **{
             k: (element_values[k] if element_values[k] is not None else "NULL")
             for k in cfg.ALLOWED_ELEMENTS
@@ -65,58 +69,15 @@ async def api_upload(item: cfg.meteorological_elements):
     }
 
     try:
-        df = pd.DataFrame([row])
+        # 表名
+        table_name = f"table_{station_name}_{day}"
 
-        # 替换NULL为NaN（方便后续计算）
-        df[cfg.ALLOWED_ELEMENTS] = df[cfg.ALLOWED_ELEMENTS].replace("NULL", pd.NA)
+        # 如果表不存在，则创建
+        if not table_exists(table_name):
+            create_table(table_name)
+        # 向表中插入数据
+        insert_record(table_name, row)
 
-        # 按站点和分钟分组，计算平均值，保留两位小数
-        tmp = (
-            df.groupby(["station_name", "time_utc", "time_local"])[cfg.ALLOWED_ELEMENTS]
-            .mean()
-            .reset_index()
-            .round(2)
-        )
-
-        created = False
-        # 若csv文件未被创建则先创建
-        if not os.path.exists("data/tmp.csv"):
-            tmp.to_csv(
-                "data/tmp.csv",
-                index=False,
-                header=not os.path.exists("data/tmp.csv"),
-                sep=",",
-                mode="a",
-            )
-            created = True
-
-        tmp_df = pd.read_csv("data/tmp.csv")
-
-        if tmp["time_utc"].values != tmp_df["time_utc"].iloc[-1]:
-            df = (
-                tmp_df.groupby(["station_name", "time_utc", "time_local"])[
-                    cfg.ALLOWED_ELEMENTS
-                ]
-                .mean()
-                .reset_index()
-                .round(2)
-            )
-            df.to_csv(
-                file_path,
-                index=False,
-                header=not os.path.exists(file_path),
-                sep=",",
-                mode="a",
-            )
-            os.remove("data/tmp.csv")
-        if not created:
-            tmp.to_csv(
-                "data/tmp.csv",
-                index=False,
-                header=not os.path.exists("data/tmp.csv"),
-                sep=",",
-                mode="a",
-            )
     except Exception as e:
         return {
             "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -125,6 +86,7 @@ async def api_upload(item: cfg.meteorological_elements):
         }
 
     return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
+
 
 # 接收senerlog软件上传的数据
 @router.post("/sensorlog")

@@ -9,18 +9,20 @@ import time
 import pandas as pd
 import os
 import asyncio
+import logging
 
 # 设置路由
 router = APIRouter(
     tags=["get"],  # 在 OpenAPI 文档中为这些路由添加一个标签
 )
 
+logger = logging.getLogger("uvicorn.app")
+
 
 # 获取实时站点数据
-# 改用params
 @router.get("/api/get/info")
 async def api_get_info(
-    item: cfg.meteorological_elements = Depends(),
+    item: cfg.queryable_elements = Depends(),
 ):
 
     if item.time_local:
@@ -30,48 +32,22 @@ async def api_get_info(
         date = pd.to_datetime(datetime.now()).strftime("%Y-%m-%d %H:%M")
 
     station_name = item.station_name
+    timestamp = item.timestamp if item.timestamp is not None else int(time.time())
     time_utc = (pd.to_datetime(date) + timedelta(hours=-8)).strftime("%Y-%m-%d %H:%M")
 
-    plot_elements = draw._select_plot_elements(None)
+    day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
+    table_name = f"table_{station_name}_{day}"
 
-    selected_cols = [name for name, *_ in plot_elements]
-
-    df = draw._read_station_data(station_name, [date], selected_cols)
-
-    def _native(value):
-        if pd.isna(value):
-            return None
-        return value.item() if hasattr(value, "item") else value
-
-    if df.empty:
+    # 如果表不存在，则直接范围无数据
+    if not tools.table_exists(table_name):
         return {
             "status": status.HTTP_404_NOT_FOUND,
             "message": "无数据",
             "data": None,
         }
-
-    result = {
-        "station_name": station_name,
-        "time_utc": time_utc,
-        "time_local": time_local,
-    }
-    if time_local is None:
-        row = df.tail[1].iloc[0]
-    else:
-        mask = df["time_local"] == time_local
-        if mask.any():
-            row = df.loc[mask].iloc[-1]
-        else:
-            return {
-                "status": status.HTTP_404_NOT_FOUND,
-                "message": "无数据",
-                "data": None,
-            }
-
-    for col in selected_cols:
-        result[col] = _native(row.get(col))
-
-    return {"status": status.HTTP_200_OK, "message": "成功获取数据", "data": result}
+    data = tools.get_latest_record(table_name)
+    logging.info("数据查询成功")
+    return {"status": status.HTTP_200_OK, "message": "成功获取数据", "data": data}
 
 
 # 发送请求获取对应图片的url
@@ -84,14 +60,14 @@ async def api_get_image(
 
     if date:
         try:
-            date = pd.to_datetime(date).strftime("%Y-%m-%d")
+            date = pd.to_datetime(date).strftime("%Y_%m_%d")
         except Exception as e:
             return {
                 "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
                 "message": f"Wrong date: {date}",
             }
     if not date:
-        date = datetime.now().strftime("%Y-%m-%d")
+        date = datetime.now().strftime("%Y_%m_%d")
 
     # 列参数解析：优先 JSON；失败时支持以逗号分隔
     try:
@@ -114,8 +90,17 @@ async def api_get_image(
             }
 
     # 异步绘图，防止阻塞线程
+    table_name = f"table_{station_name}_{date}"
+    # 如果表不存在则直接返回无数据
+    if not tools.table_exists(table_name):
+        return {
+            "status": status.HTTP_404_NOT_FOUND,
+            "message": "无数据",
+            "data": None,
+        }
+
     file_name, image_id = await asyncio.to_thread(
-        draw.draw, station_name, date, element
+        draw.draw, station_name, table_name, element
     )
 
     if not file_name:

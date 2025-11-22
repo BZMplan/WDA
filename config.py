@@ -26,6 +26,9 @@ ELEMENTS = [
 ]
 
 
+DB_NAME = "data/database/record.db"
+
+
 class location(BaseModel):
     deviceID: Optional[str] = None  # 设备名称
     locationTimestamp_since1970: Optional[float] = None  # 设备时间戳
@@ -74,6 +77,16 @@ class meteorological_elements(BaseModel):
     #     if abs(now - v) > 10:
     #         raise ValueError("timestamp may be wrong, please check it.")
     #     return v
+
+    class Config:
+        extra = "ignore"
+
+
+class queryable_elements(BaseModel):
+    station_name: str = None  # 站点名称
+    timestamp: Optional[int] = None  # 时间戳
+    time_utc: Optional[datetime] = None  # utc时间
+    time_local: Optional[datetime] = None  # 本地时间
 
     class Config:
         extra = "ignore"

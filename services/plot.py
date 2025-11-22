@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import logging
 import os
 import uuid
+import sqlite3
 
 logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
 
@@ -107,6 +108,30 @@ def _read_station_data(station_name, dates, selected_cols, sep=","):
     return df
 
 
+def _read_table_data(db_name, table_name, columns=None):
+    """
+    读取SQLite表数据到DataFrame（支持指定列）
+
+    Args:
+        db_name (str): 数据库路径
+        table_name (str): 表名
+        columns (list): 要读取的列名列表，None表示所有列
+
+    Returns:
+        pd.DataFrame: 数据表
+    """
+    conn = sqlite3.connect(db_name)
+    col_str = (
+        "*"
+        if not columns
+        else ", ".join([c for c in columns if isinstance(c, str) and c.isidentifier()])
+    )
+    df = pd.read_sql(f"SELECT {col_str} FROM {table_name}", conn)
+    df['time_local'] = pd.to_datetime(df["time_local"])
+    conn.close()
+    return df
+
+
 # 降采样函数
 def _downsample_evenly(df, max_points=1500):
     """大数据量时做简单等间隔降采样，减少绘图点数以提速。"""
@@ -160,13 +185,14 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
 
 
 # 绘制图像
-def draw(station_name: str, date: str = None, elements: str = None):
+def draw(station_name, table_name: str = None, elements: str = None):
 
     plot_elements = _select_plot_elements(elements)
     selected_cols = [name for name, *_ in plot_elements]
 
-    df = _read_station_data(station_name, [date], selected_cols)
-
-    file_name, image_id = _make_plots(df, plot_elements, station_name, "test")
+    selected_cols.append("time_local")
+    # df = _read_station_data(station_name, [date], selected_cols)
+    df = _read_table_data(cfg.DB_NAME, table_name, selected_cols)
+    file_name, image_id = _make_plots(df, plot_elements, station_name, "Beta Version")
 
     return file_name, image_id

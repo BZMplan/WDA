@@ -1,11 +1,11 @@
 from fastapi import FastAPI
-# from fastapi.staticfiles import StaticFiles
 from routes import get, post
-# from web import main_page
 from services import utils as tools, bootstrap as init
 import uvicorn
 import threading
+import logging
 
+logger = logging.getLogger("uvicorn.app")
 app = FastAPI()
 app.include_router(get.router)
 app.include_router(post.router)
@@ -20,7 +20,10 @@ if __name__ == "__main__":
 
     # 初始化文件夹
     init.setup_dirs()
-    init.setup_dirs(base="data", names=["sensorlog"])
+    init.setup_dirs(base="data", names=["sensorlog", "database"])
+    
+    # 初始化数据库
+    init.setup_database()
 
     # 初始化配置文件
     log_config_path = init.setup_log_config()
