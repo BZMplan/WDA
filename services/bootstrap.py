@@ -1,12 +1,15 @@
 from pathlib import Path
+from typing import Iterable
+from config import DB_NAME
 import os
 import sys
 import tempfile
 import logging
 import atexit
-from typing import Iterable
+import sqlite3
 
 logger = logging.getLogger("uvicorn.app")
+
 
 # 初始化文件夹
 def setup_dirs(
@@ -26,6 +29,11 @@ def setup_dirs(
         created.append(str(path))
     logger.info("初始化文件夹成功: %s", ", ".join(created))
 
+
+# 初始化数据库
+def setup_database():
+    conn = sqlite3.connect(DB_NAME)    
+    conn.close()
 
 def _find_log_config_path() -> Path | None:
     """在常见位置查找 log_config.ini。找不到则返回 None。"""
