@@ -26,7 +26,7 @@ ELEMENTS = [
 ]
 
 
-DB_NAME = "data/database/record.db"
+DB_NAME = "data/database/weather_data.db"
 
 
 class location(BaseModel):

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status
-from services.utils import create_table, insert_record, table_exists
+from services.utils import create_table, insert_data, table_exists
 
 import logging
 import config as cfg
@@ -73,10 +73,10 @@ async def api_upload(item: cfg.meteorological_elements):
         table_name = f"table_{station_name}_{day}"
 
         # 如果表不存在，则创建
-        if not table_exists(table_name):
-            create_table(table_name)
+        if not table_exists(cfg.DB_NAME, table_name):
+            create_table(cfg.DB_NAME, table_name)
         # 向表中插入数据
-        insert_record(table_name, row)
+        insert_data(cfg.DB_NAME,table_name, row)
 
     except Exception as e:
         return {

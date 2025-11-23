@@ -11,6 +11,8 @@ logger = logging.getLogger("uvicorn.app")
 # 后续将存贮在数据库里
 one_time_image_tokens = {}
 
+
+# 清理过期的图片
 def clean_expired_image_tokens():
 
     while True:
@@ -32,16 +34,9 @@ def clean_expired_image_tokens():
             del one_time_image_tokens[image_token]
 
 
-def clean_nan_values(data: dict) -> dict:
-    """将字典中的NaN值替换为None,确保JSON序列化正常"""
-    return {
-        key: None if isinstance(value, float) and math.isnan(value) else value
-        for key, value in data.items()
-    }
-
-
-# 数据库相关操作
-def table_exists(table_name):
+# SQLite数据库相关操作
+# 查询表是否存在
+def table_exists(db_name, table_name):
     """
     检查SQLite数据库中是否存在指定的表
 
@@ -54,7 +49,7 @@ def table_exists(table_name):
     """
     try:
         # 连接数据库
-        conn = sqlite3.connect(DB_NAME)
+        conn = sqlite3.connect(db_name)
         cursor = conn.cursor()
 
         # 方法1：查询sqlite_master系统表（最可靠）
@@ -78,9 +73,11 @@ def table_exists(table_name):
         if conn:
             conn.close()
 
-def create_table(table_name):
+
+# 创建表
+def create_table(db_name, table_name):
     # 创建数据库连接
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     create_table_sql = f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
@@ -107,7 +104,9 @@ def create_table(table_name):
     finally:
         conn.close()
 
-def insert_record(table_name, record_data):
+
+# 在表中插入数据
+def insert_data(db_name, table_name, record_data):
     """
     向weather_records表中插入单行气象数据
 
@@ -115,7 +114,7 @@ def insert_record(table_name, record_data):
         record_data (dict): 包含气象数据的字典
     """
     # 连接数据库
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
     try:
@@ -156,25 +155,27 @@ def insert_record(table_name, record_data):
     finally:
         conn.close()
 
-def get_latest_record(table_name, order_column='id', is_desc=True):
+
+# 获得表中最新数据
+def get_latest_data(db_name, table_name, order_column="id", is_desc=True):
     """
     查询表中的最新一行数据
-    
+
     Args:
         db_path (str): 数据库文件路径
         table_name (str): 表名
         order_column (str): 用于排序的列名（通常是ID或时间列）
         is_desc (bool): 是否降序排列（True表示最新的在前）
-        
+
     Returns:
         dict or None: 包含最新记录的字典，无数据时返回None
     """
     conn = None
     try:
         # 连接数据库
-        conn = sqlite3.connect(DB_NAME)
+        conn = sqlite3.connect(db_name)
         conn.row_factory = sqlite3.Row  # 启用行工厂，便于按列名访问
-        
+
         # 构建查询SQL
         order_dir = "DESC" if is_desc else "ASC"
         query = f"""
@@ -182,24 +183,49 @@ def get_latest_record(table_name, order_column='id', is_desc=True):
             ORDER BY {order_column} {order_dir}
             LIMIT 1
         """
-        
+
         # 执行查询
         cursor = conn.cursor()
         cursor.execute(query)
-        
+
         # 获取结果
         row = cursor.fetchone()
-        
+
         if row:
             # 转换为字典返回
             return dict(row)
         else:
             print(f"表 '{table_name}' 中没有数据")
             return None
-            
+
     except sqlite3.Error as e:
         print(f"查询出错: {e}")
         return None
     finally:
         if conn:
             conn.close()
+
+
+# 获得表中全部数据
+def get_table_data(db_name, table_name, columns=None):
+    """
+    读取SQLite表数据到DataFrame（支持指定列）
+
+    Args:
+        db_name (str): 数据库路径
+        table_name (str): 表名
+        columns (list): 要读取的列名列表，None表示所有列
+
+    Returns:
+        pd.DataFrame: 数据表
+    """
+    conn = sqlite3.connect(db_name)
+    col_str = (
+        "*"
+        if not columns
+        else ", ".join([c for c in columns if isinstance(c, str) and c.isidentifier()])
+    )
+    df = pd.read_sql(f"SELECT {col_str} FROM {table_name}", conn)
+    df["time_local"] = pd.to_datetime(df["time_local"])
+    conn.close()
+    return df

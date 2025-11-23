@@ -45,7 +45,7 @@ async def api_get_info(
             "message": "无数据",
             "data": None,
         }
-    data = tools.get_latest_record(table_name)
+    data = tools.get_latest_data(cfg.DB_NAME, table_name)
     logging.info("数据查询成功")
     return {"status": status.HTTP_200_OK, "message": "成功获取数据", "data": data}
 
@@ -100,7 +100,7 @@ async def api_get_image(
         }
 
     file_name, image_id = await asyncio.to_thread(
-        draw.draw, station_name, table_name, element
+        draw.draw, station_name, cfg.DB_NAME, table_name, element
     )
 
     if not file_name:
