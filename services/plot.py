@@ -11,7 +11,6 @@ import config as cfg
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-import os
 import uuid
 
 logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
@@ -34,15 +33,15 @@ ELEMENT_MAP = {
 }
 
 
+# 根据传入列名筛选参数配置
 def _select_plot_elements(plot_elements):
-    """根据传入列名筛选参数配置；为空或None则返回全部。"""
     if not plot_elements:
         return cfg.ELEMENTS
     return [ELEMENT_MAP[p] for p in plot_elements if p in ELEMENT_MAP]
 
 
+# 统一的绘图函数
 def _make_plots(plot_df, plot_elements, station_name, title_suffix):
-    """统一的绘图函数：使用matplotlib直接绘制以提升速度。"""
     if len(plot_elements) == 0:
         raise ValueError("No valid columns to plot.")
     n = len(plot_elements)
@@ -83,8 +82,8 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
     return file_name, image_id
 
 
-# 绘制图像
-def draw(
+# 绘图初始化函数
+def setup(
     station_name, db_name: str = None, table_name: str = None, elements: str = None
 ):
 
@@ -97,6 +96,3 @@ def draw(
     file_name, image_id = _make_plots(df, plot_elements, station_name, "Beta Version")
 
     return file_name, image_id
-
-
-d

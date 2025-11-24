@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status
+from services import utils
 from services.utils import create_table, insert_data, table_exists
 
 import logging
@@ -6,7 +7,6 @@ import config as cfg
 import os
 import time
 import pandas as pd
-import math
 
 
 # 设置路由
@@ -20,75 +20,59 @@ logger = logging.getLogger("uvicorn.app")
 # 上传站点数据
 @router.post("/api/upload")
 async def api_upload(item: cfg.meteorological_elements):
-    station_name = item.station_name
-    timestamp = item.timestamp if item.timestamp is not None else int(time.time())
 
+    # 简化时间处理
+    timestamp = item.timestamp or int(time.time())
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
+    table_name = f"table_{item.station_name}_{day}"
 
-    element_values = {field: getattr(item, field) for field in cfg.ALLOWED_ELEMENTS}
+    # 统一空值处理函数
+    def nullify(value):
+        return "NULL" if value is None else value
 
-    # 计算海压
-    sea_level_pressure = None
-    if (
-        element_values["pressure"] is not None
-        and element_values["temperature"] is not None
-        and element_values["relative_humidity"] is not None
-    ):
-        sea_level_pressure = calc_sea_level_pressure(
-            element_values["temperature"],
-            element_values["pressure"],
-            element_values["relative_humidity"],
-            27.5,
+    # 计算衍生值（封装到独立函数）
+    sea_level_pressure = (
+        utils.calc_sea_level_pressure(
+            item.temperature, item.pressure, item.relative_humidity, 27.5
         )
+        if all((item.temperature, item.pressure, item.relative_humidity))
+        else None
+    )
 
-    # 计算露点温度
-    dew_point = None
-    if (
-        element_values["temperature"] is not None
-        and element_values["relative_humidity"] is not None
-    ):
-        dew_point = calc_dew_point(
-            element_values["temperature"], element_values["relative_humidity"]
-        )
+    dew_point = (
+        utils.calc_dew_point(item.temperature, item.relative_humidity)
+        if all((item.temperature, item.relative_humidity))
+        else None
+    )
 
-    # 构建写入行：元素为空用 "NULL" 占位
+    # 构建数据行（使用字典推导式统一处理空值）
     row = {
-        "station_name": station_name,
-        # "timestamp": timestamp,
-        # 兼容SQLite的DATETIME数据类型
+        "station_name": item.station_name,
         "time_utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(timestamp)),
         "time_local": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)),
-        **{
-            k: (element_values[k] if element_values[k] is not None else "NULL")
-            for k in cfg.ALLOWED_ELEMENTS
-        },
-        "sea_level_pressure": (
-            sea_level_pressure if sea_level_pressure is not None else "NULL"
-        ),
-        "dew_point": dew_point if dew_point is not None else "NULL",
+        **{field: nullify(getattr(item, field)) for field in cfg.ALLOWED_ELEMENTS},
+        "sea_level_pressure": nullify(sea_level_pressure),
+        "dew_point": nullify(dew_point),
     }
 
+    # 数据库操作封装
     try:
-        # 表名
-        table_name = f"table_{station_name}_{day}"
-
-        # 如果表不存在，则创建
+        # 合并表存在检查和创建
         if not table_exists(cfg.DB_NAME, table_name):
             create_table(cfg.DB_NAME, table_name)
-        # 向表中插入数据
-        insert_data(cfg.DB_NAME,table_name, row)
-
+        insert_data(cfg.DB_NAME, table_name, row)
     except Exception as e:
         return {
             "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "message": f"write data failed: {e}",
+            "message": f"Database write failed: {str(e)}",
             "data": None,
         }
 
-    return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
+    return {"status": status.HTTP_200_OK, "message": "Upload success", "data": row}
 
 
 # 接收senerlog软件上传的数据
+# 暂存
 @router.post("/sensorlog")
 async def sensorlog(item: cfg.location):
     server_timestamp = int(time.time())
@@ -129,72 +113,3 @@ async def sensorlog(item: cfg.location):
         }
 
     return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
-
-
-# 计算海平面气压
-def calc_sea_level_pressure(temp_c, pressure_hpa, humidity_percent, altitude_m):
-    """
-    计算海平面气压（hPa）
-    参数：
-        temp_c:            气温（℃）
-        pressure_hpa:      测站气压（hPa）
-        humidity_percent:  相对湿度（%）
-        altitude_m:        海拔（m）
-    返回：
-        海平面气压（hPa）
-    """
-    # 常数
-    g = 9.80665  # 重力加速度 (m/s^2)
-    Rd = 287.05  # 干空气气体常数 (J/(kg·K))
-    lapse = 0.0065  # 标准直减率 (K/m)
-    epsilon = 0.622  # Rv/Rd 倒数
-    T = temp_c + 273.15  # 转换为开尔文温度
-    RH = humidity_percent / 100.0
-
-    # 饱和水汽压（Magnus公式）
-    es = 6.112 * math.exp((17.67 * temp_c) / (temp_c + 243.5))
-    e = RH * es  # 实际水汽压
-    e = min(e, pressure_hpa * 0.99)  # 防止 e 超过气压
-
-    # 混合比 (kg/kg)
-    r = epsilon * e / (pressure_hpa - e)
-    q = r / (1 + r)  # 比湿
-
-    # 虚温 (K)
-    Tv = T * (1 + 0.61 * q)
-
-    # 平均虚温修正（向下延伸到海平面一半高度）
-    Tv_mean = Tv + 0.5 * lapse * altitude_m
-
-    # Hypsometric 方程：p0 = p * exp(g*z / (Rd*Tv_mean))
-    p0 = pressure_hpa * math.exp(g * altitude_m / (Rd * Tv_mean))
-
-    return round(p0, 2)
-
-
-# 计算露点温度
-def calc_dew_point(temp_c, humidity_percent):
-    """
-    计算露点温度（℃）
-    参数：
-        temp_c: 气温（℃）
-        humidity_percent: 相对湿度（%）
-    返回：
-        露点温度（℃）
-    公式来源：
-        Magnus-Tetens 经验公式（适用于 -45℃ ~ 60℃）
-    """
-    # 保证 RH 在 [0.1, 100] 之间，防止 log(0)
-    RH = max(0.1, min(100.0, humidity_percent))
-    RH_frac = RH / 100.0
-
-    # Magnus 常数（针对水面）
-    a = 17.27
-    b = 237.7  # ℃
-
-    # 计算 γ 函数
-    gamma = (a * temp_c / (b + temp_c)) + math.log(RH_frac)
-
-    # 计算露点
-    dew_point = (b * gamma) / (a - gamma)
-    return round(dew_point, 2)
