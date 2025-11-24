@@ -6,9 +6,8 @@ matplotlib.use("Agg", force=True)
 from matplotlib import dates
 from matplotlib.ticker import FuncFormatter
 from matplotlib import font_manager
-from services.utils import get_table_data
+from services.postgresql import get_table_data
 import config as cfg
-import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 import uuid
@@ -83,16 +82,14 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
 
 
 # 绘图初始化函数
-def setup(
-    station_name, db_name: str = None, table_name: str = None, elements: str = None
-):
+def setup(station_name, table_name: str = None, elements: str = None):
 
     plot_elements = _select_plot_elements(elements)
     selected_cols = [name for name, *_ in plot_elements]
 
     selected_cols.append("time_local")
     # df = _read_station_data(station_name, [date], selected_cols)
-    df = get_table_data(db_name, table_name, selected_cols)
+    df = get_table_data(table_name, selected_cols)
     file_name, image_id = _make_plots(df, plot_elements, station_name, "Beta Version")
 
     return file_name, image_id

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status
 from services import utils
-from services.utils import create_table, insert_data, table_exists
+from services.postgresql import create_table, insert_data, table_exists
 
 import logging
 import config as cfg
@@ -28,7 +28,7 @@ async def api_upload(item: cfg.meteorological_elements):
 
     # 统一空值处理函数
     def nullify(value):
-        return "NULL" if value is None else value
+        return None if value is None else value
 
     # 计算衍生值（封装到独立函数）
     sea_level_pressure = (
@@ -48,8 +48,8 @@ async def api_upload(item: cfg.meteorological_elements):
     # 构建数据行（使用字典推导式统一处理空值）
     row = {
         "station_name": item.station_name,
+        # 只存储utc时间
         "time_utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(timestamp)),
-        "time_local": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)),
         **{field: nullify(getattr(item, field)) for field in cfg.ALLOWED_ELEMENTS},
         "sea_level_pressure": nullify(sea_level_pressure),
         "dew_point": nullify(dew_point),
@@ -58,9 +58,9 @@ async def api_upload(item: cfg.meteorological_elements):
     # 数据库操作封装
     try:
         # 合并表存在检查和创建
-        if not table_exists(cfg.DB_NAME, table_name):
-            create_table(cfg.DB_NAME, table_name)
-        insert_data(cfg.DB_NAME, table_name, row)
+        if not table_exists(table_name):
+            create_table(table_name)
+        insert_data(table_name, row)
     except Exception as e:
         return {
             "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -75,6 +75,7 @@ async def api_upload(item: cfg.meteorological_elements):
 # 暂存
 @router.post("/sensorlog")
 async def sensorlog(item: cfg.location):
+
     server_timestamp = int(time.time())
     day = time.strftime("%Y-%m-%d", time.localtime(item.locationTimestamp_since1970))
     file_name = f"{item.deviceID}_{day}.csv"

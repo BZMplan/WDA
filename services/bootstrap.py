@@ -32,8 +32,9 @@ def setup_dirs(
 
 # 初始化数据库
 def setup_database():
-    conn = sqlite3.connect(DB_NAME)    
+    conn = sqlite3.connect(DB_NAME)
     conn.close()
+
 
 def _find_log_config_path() -> Path | None:
     """在常见位置查找 log_config.ini。找不到则返回 None。"""

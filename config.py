@@ -27,14 +27,13 @@ ELEMENTS = [
 
 
 DB_NAME = "data/database/weather_data.db"
+DATABASE_url = "postgresql+psycopg2://postgres:eothkl123@192.168.10.126:5432/postgres"
 
 
 class location(BaseModel):
     deviceID: Optional[str] = None  # 设备名称
     locationTimestamp_since1970: Optional[float] = None  # 设备时间戳
-    time_utc: Optional[datetime] = None  # utc时间
-    time_local: Optional[datetime] = None  # 本地时间
-    locationAltitude: Optional[float] = None  # 海拔
+    time_utc: Optional[datetime] = None  # utc时间    locationAltitude: Optional[float] = None  # 海拔
     locationLatitude: Optional[float] = None  # 纬度
     locationLongitude: Optional[float] = None  # 经度
     locationSpeed: Optional[float] = None  # 速度
@@ -59,7 +58,6 @@ class meteorological_elements(BaseModel):
     station_name: str = None  # 站点名称
     timestamp: Optional[int] = None  # 时间戳
     time_utc: Optional[datetime] = None  # utc时间
-    time_local: Optional[datetime] = None  # 本地时间
     temperature: Optional[float] = None  # 气温
     pressure: Optional[float] = None  # 气压
     relative_humidity: Optional[float] = None  # 相对湿度
@@ -86,7 +84,6 @@ class queryable_elements(BaseModel):
     station_name: str = None  # 站点名称
     timestamp: Optional[int] = None  # 时间戳
     time_utc: Optional[datetime] = None  # utc时间
-    time_local: Optional[datetime] = None  # 本地时间
 
     class Config:
         extra = "ignore"

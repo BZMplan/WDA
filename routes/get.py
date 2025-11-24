@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
-from services import utils
+from services import postgresql, utils
 from services import plot
 import config as cfg
 import uuid
@@ -40,14 +40,15 @@ async def api_get_info(
     table_name = f"table_{station_name}_{day}"
 
     # 如果表不存在，则直接范围无数据
-    if not utils.table_exists(table_name):
+    if not postgresql.table_exists(table_name):
         return {
             "status": status.HTTP_404_NOT_FOUND,
             "message": "无数据",
             "data": None,
         }
-
-    data = utils.get_latest_data(cfg.DB_NAME, table_name)
+    data = postgresql.get_latest_data(table_name)
+    if data is not None and isinstance(data, pd.DataFrame):
+        data = data.to_dict(orient="records")
     logging.info("数据查询成功")
     return {"status": status.HTTP_200_OK, "message": "成功获取数据", "data": data}
 
@@ -92,7 +93,7 @@ async def api_get_image(
 
     # 如果表不存在则直接返回无数据
     table_name = f"table_{station_name}_{date}"
-    if not utils.table_exists(table_name):
+    if not postgresql.table_exists(table_name):
         return {
             "status": status.HTTP_404_NOT_FOUND,
             "message": "无数据",
@@ -100,9 +101,7 @@ async def api_get_image(
 
     # 异步绘图，防止阻塞线程
     try:
-        file_name, image_id = await asyncio.to_thread(
-            plot.setup, station_name, cfg.DB_NAME, table_name, element
-        )
+        file_name, image_id = await asyncio.to_thread(plot.setup, table_name, element)
         image_token = str(uuid.uuid4())
         utils.one_time_image_tokens[image_token] = (time.time(), file_name)
         return {
