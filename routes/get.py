@@ -101,7 +101,9 @@ async def api_get_image(
 
     # 异步绘图，防止阻塞线程
     try:
-        file_name, image_id = await asyncio.to_thread(plot.setup, table_name, element)
+        file_name, image_id = await asyncio.to_thread(
+            plot.setup, station_name, table_name, element
+        )
         image_token = str(uuid.uuid4())
         utils.one_time_image_tokens[image_token] = (time.time(), file_name)
         return {

@@ -1,4 +1,5 @@
 import matplotlib
+import pandas as pd
 
 
 # 使用无GUI后端，避免在子线程上创建窗口（macOS 下会崩溃）
@@ -48,6 +49,13 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
     fig, axes = plt.subplots(n, 1, figsize=(12, fig_h), sharex=True)
     axes_list = axes if n > 1 else [axes]
 
+    # 转换成本地（中国）时间
+    plot_df["time_local"] = (
+        pd.to_datetime(plot_df["time_utc"], utc=True)
+        .dt.tz_convert("Asia/Shanghai")
+        .dt.strftime("%Y-%m-%d %H:%M:%S")
+    )
+
     for ax, (column, title, unit, color) in zip(axes_list, plot_elements):
         ax.plot(plot_df["time_local"], plot_df[column], color=color, linewidth=1.2)
         ax.set_title(title, fontsize=18)
@@ -87,8 +95,8 @@ def setup(station_name, table_name: str = None, elements: str = None):
     plot_elements = _select_plot_elements(elements)
     selected_cols = [name for name, *_ in plot_elements]
 
-    selected_cols.append("time_local")
-    # df = _read_station_data(station_name, [date], selected_cols)
+    selected_cols.append("time_utc")
+
     df = get_table_data(table_name, selected_cols)
     file_name, image_id = _make_plots(df, plot_elements, station_name, "Beta Version")
 

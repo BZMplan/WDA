@@ -1,4 +1,5 @@
 from pandas import DataFrame
+import pandas as pd
 from sqlalchemy import (
     create_engine,
     MetaData,
@@ -74,7 +75,7 @@ def get_table_data(table_name: str, columns: list[str]) -> DataFrame:
     table = Table(table_name, metadata, autoload_with=engine)
     selected_cols = [table.c[col] for col in columns]
     with engine.connect() as conn:
-        stmt = table.select().with_only_columns(selected_cols)
+        stmt = table.select().with_only_columns(*selected_cols)
         result = conn.execute(stmt)
         df = DataFrame(result.fetchall(), columns=columns)
     return df
