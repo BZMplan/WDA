@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status
 from services import utils
-from services.postgresql import create_table, insert_data, table_exists
+from services.postgresql import create_weather_data_table, insert_data, table_exists
 
 import logging
 import config as cfg
@@ -59,7 +59,7 @@ async def api_upload(item: cfg.meteorological_elements):
     try:
         # 合并表存在检查和创建
         if not table_exists(table_name):
-            create_table(table_name)
+            create_weather_data_table(table_name)
         insert_data(table_name, row)
     except Exception as e:
         return {

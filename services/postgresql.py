@@ -1,5 +1,4 @@
 from pandas import DataFrame
-import pandas as pd
 from sqlalchemy import (
     create_engine,
     MetaData,
@@ -23,13 +22,13 @@ def table_exists(table_name: str, schema: str | None = None) -> bool:
     return insp.has_table(table_name, schema=schema)
 
 
-def create_table(table_name: str):
+def create_weather_data_table(table_name: str):
     """
     创建一张天气数据表，表结构固定，表名可变。
     如果已存在则直接跳过。
     """
     if table_exists(table_name):
-        print(f"表 {table_name} 已存在，跳过创建")
+        # print(f"表 {table_name} 已存在，跳过创建")
         return
 
     table = Table(
@@ -50,6 +49,27 @@ def create_table(table_name: str):
     metadata.create_all(engine, tables=[table])
 
 
+def create_image_tokons_table(table_name: str):
+    """
+    创建一张天气数据表，表结构固定，表名可变。
+    如果已存在则直接跳过。
+    """
+    if table_exists(table_name):
+        # print(f"表 {table_name} 已存在，跳过创建")
+        return
+
+    table = Table(
+        table_name,
+        metadata,
+        Column("id", Integer, primary_key=True, autoincrement=True),
+        Column("file_name", String, nullable=False),
+        Column("image_token", String, nullable=False),
+        Column("create_time", Integer, nullable=False),
+    )
+
+    metadata.create_all(engine, tables=[table])
+
+
 def insert_data(table_name: str, data: dict) -> int | None:
     """
     向指定表插入一行数据。
@@ -57,6 +77,9 @@ def insert_data(table_name: str, data: dict) -> int | None:
     返回插入行的主键 id（如果有）。
     """
     if not table_exists(table_name):
+        if table_name == "image_tokens":
+            create_image_tokons_table("image_tokens")
+
         raise RuntimeError(f"表 {table_name} 不存在，请先创建")
 
     # 通过反射加载表结构（不需要 ORM class）
@@ -91,3 +114,37 @@ def get_latest_data(table_name: str) -> DataFrame:
         result = conn.execute(stmt)
         df = DataFrame(result.fetchall(), columns=result.keys())
     return df
+
+
+def search_data(table_name: str, column: str, value):
+    """
+    根据表名、列名和数据值，返回匹配的行数据（DataFrame）。
+    如果没有找到则返回 None。
+    """
+    if not table_exists(table_name):
+        raise RuntimeError(f"表 {table_name} 不存在，请先创建")
+
+    table = Table(table_name, metadata, autoload_with=engine)
+    with engine.connect() as conn:
+        stmt = table.select().where(table.c[column] == value)
+        result = conn.execute(stmt)
+        rows = result.fetchall()
+        if not rows:
+            return None
+        df = DataFrame(rows, columns=result.keys())
+    return df
+
+
+def delete_row(table_name: str, column: str, value) -> int:
+    """
+    根据表名、列名和数据值，删除匹配的行。
+    返回删除的行数。
+    """
+    if not table_exists(table_name):
+        raise RuntimeError(f"表 {table_name} 不存在，请先创建")
+
+    table = Table(table_name, metadata, autoload_with=engine)
+    with engine.begin() as conn:
+        stmt = table.delete().where(table.c[column] == value)
+        result = conn.execute(stmt)
+        return result.rowcount

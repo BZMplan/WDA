@@ -3,6 +3,8 @@ import math
 import os
 import time
 
+from services import postgresql
+
 
 logger = logging.getLogger("uvicorn.app")
 
@@ -14,22 +16,24 @@ one_time_image_tokens = {}
 def clean_expired_image_tokens():
 
     while True:
-        time.sleep(10)  # 每10秒检查一次
         current_time = time.time()
         # 清理120秒（2分钟）前的令牌
-        expired_tokens = [
-            t
-            for t, (created_time, _) in one_time_image_tokens.items()
-            if current_time - created_time > 120
+        result = postgresql.get_table_data("image_tokens", ["create_time", "file_name"])
+        arr = [(row["create_time"], row["file_name"]) for _, row in result.iterrows()]
+
+        expired_files = [
+            (create_time, file_name)
+            for create_time, file_name in arr
+            if current_time - create_time > 120
         ]
-        for image_token in expired_tokens:
-            # 删除token和对应的文件
-            _, resource_path = one_time_image_tokens[image_token]
-            os.remove(os.path.join("images", resource_path))
-            # logger.info(f"图片'{os.path.join("images",resource_path)}'过期，已删除")
-            img_path = os.path.join("images", resource_path)
-            logger.info(f"图片'{img_path}'过期,已删除")
-            del one_time_image_tokens[image_token]
+
+        for _, file_name in expired_files:
+            file_path = os.path.join("images", file_name)
+            os.remove(file_path)
+            postgresql.delete_row("image_tokens", "file_name", file_name)
+            logger.info(f"{file_path}过期，已删除")
+
+        time.sleep(10)  # 每10秒检查一次
 
 
 # 数值计算功能函数

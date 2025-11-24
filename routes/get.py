@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
-from services import postgresql, utils
+from services import postgresql
 from services import plot
 import config as cfg
 import uuid
@@ -105,7 +105,13 @@ async def api_get_image(
             plot.setup, station_name, table_name, element
         )
         image_token = str(uuid.uuid4())
-        utils.one_time_image_tokens[image_token] = (time.time(), file_name)
+        data = {
+            "file_name": file_name,
+            "image_token": image_token,
+            "create_time": int(time.time()),
+        }
+        postgresql.insert_data("image_tokens", data)
+
         return {
             "status": status.HTTP_200_OK,
             "image_id": image_id,
@@ -121,17 +127,16 @@ async def api_get_image(
 # 显示图片资源
 @router.get("/image")
 async def image(image_token: str):
-    if image_token not in utils.one_time_image_tokens:
-        raise HTTPException(status_code=403, detail="URL无效或已被使用")
-
-    created_time, file_name = utils.one_time_image_tokens.get(image_token)
-    if time.time() - created_time > 120:
-        # 过期直接移除
-        utils.one_time_image_tokens.pop(image_token, None)
-        raise HTTPException(status_code=403, detail="URL已过期")
+    result = postgresql.search_data("image_tokens", "image_token", image_token)
+    data = (
+        None if result is None else next(iter(result.to_dict(orient="index").values()))
+    )
+    if not data:
+        raise HTTPException(status_code=403, detail="URL无效或已过期/已使用")
+    _, file_name = data["create_time"], data["file_name"]
 
     # 一次性 token：消费后移除，文件由清理线程回收
-    utils.one_time_image_tokens.pop(image_token, None)
+    postgresql.delete_row("image_tokens", "image_token", image_token)
     return FileResponse(os.path.join("images", file_name))
 
 

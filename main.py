@@ -21,7 +21,10 @@ if __name__ == "__main__":
     # 初始化文件夹
     init.setup_dirs()
     init.setup_dirs(base="data", names=["sensorlog"])
-
+    
+    # 初始化数据库
+    init.init_postgresql()
+    
     # 初始化配置文件
     log_config_path = init.setup_log_config()
 

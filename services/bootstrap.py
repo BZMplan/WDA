@@ -6,6 +6,8 @@ import tempfile
 import logging
 import atexit
 
+from services.postgresql import create_image_tokons_table
+
 logger = logging.getLogger("uvicorn.app")
 
 
@@ -26,6 +28,11 @@ def setup_dirs(
         path.mkdir(parents=True, exist_ok=True)
         created.append(str(path))
     logger.info("初始化文件夹成功: %s", ", ".join(created))
+
+
+# 初始化数据库
+def init_postgresql():
+    create_image_tokons_table("image_tokens")
 
 
 def _find_log_config_path() -> Path | None:
