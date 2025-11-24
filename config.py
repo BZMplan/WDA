@@ -26,7 +26,6 @@ ELEMENTS = [
 ]
 
 
-DB_NAME = "data/database/weather_data.db"
 DATABASE_url = "postgresql+psycopg2://postgres:eothkl123@192.168.10.126:5432/postgres"
 
 

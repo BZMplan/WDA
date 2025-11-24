@@ -53,9 +53,9 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
     plot_df["time_local"] = (
         pd.to_datetime(plot_df["time_utc"], utc=True)
         .dt.tz_convert("Asia/Shanghai")
-        .dt.strftime("%Y-%m-%d %H:%M:%S")
+        .dt.tz_localize(None)
     )
-
+    
     for ax, (column, title, unit, color) in zip(axes_list, plot_elements):
         ax.plot(plot_df["time_local"], plot_df[column], color=color, linewidth=1.2)
         ax.set_title(title, fontsize=18)
@@ -66,6 +66,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
         ax.grid(alpha=0.7)
 
     axes_list[-1].set_xlabel("")
+    # axes_list[-1].xaxis.set_major_locator(dates.HourLocator(interval=2))
     axes_list[-1].xaxis.set_major_formatter(datetime_format)
 
     if n > 1:
