@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
 from services import postgresql
 from services import plot
-import config as cfg
+import services.config as cfg
 import uuid
 import json
 import time
@@ -55,7 +55,7 @@ async def api_get_image(
     if not date:
         date = datetime.now().strftime("%Y_%m_%d")
     try:
-        date = pd.to_datetime(date).strftime("%Y_%m_%d")
+        date = pd.to_datetime(date, format="%Y_%m_%d").strftime("%Y_%m_%d")
     except (ValueError, TypeError):
         return {
             "status": status.HTTP_400_BAD_REQUEST,

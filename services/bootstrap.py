@@ -6,6 +6,7 @@ import tempfile
 import logging
 import atexit
 
+
 from services.postgresql import create_image_tokons_table
 
 logger = logging.getLogger("uvicorn.app")

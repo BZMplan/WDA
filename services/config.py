@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import Optional
-from fastapi import Query
 from pydantic import BaseModel, field_validator
 import time
 
@@ -26,13 +25,12 @@ ELEMENTS = [
 ]
 
 
-DATABASE_url = "postgresql+psycopg2://postgres:eothkl123@192.168.10.126:5432/postgres"
-
-
 class location(BaseModel):
     deviceID: Optional[str] = None  # 设备名称
     locationTimestamp_since1970: Optional[float] = None  # 设备时间戳
-    time_utc: Optional[datetime] = None  # utc时间    locationAltitude: Optional[float] = None  # 海拔
+    time_utc: Optional[datetime] = (
+        None  # utc时间    locationAltitude: Optional[float] = None  # 海拔
+    )
     locationLatitude: Optional[float] = None  # 纬度
     locationLongitude: Optional[float] = None  # 经度
     locationSpeed: Optional[float] = None  # 速度

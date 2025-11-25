@@ -3,7 +3,7 @@ from services import utils
 from services.postgresql import create_weather_data_table, insert_data, table_exists
 
 import logging
-import config as cfg
+import services.config as cfg
 import os
 import time
 import pandas as pd

@@ -1,51 +1,79 @@
 # Weather Data Analyzer & Visualization
 
-一个基于 **FastAPI** 的气象站数据上传、查询与可视化服务。系统接收站点分钟级观测值，自动完成基础气象指标计算、CSV 存储、折线图渲染，并通过一次性令牌安全地暴露图像资源。
+一个基于 **FastAPI** 的气象站数据上传、查询与可视化服务，使用 PostgreSQL 持久化观测值，支持 Matplotlib 异步绘图，并通过一次性令牌控制图片访问。
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/BZMplan/WDA)
 ---
 
-## 核心特性
+## 功能亮点
 
-- **数据采集**：`POST /api/upload` 支持多种气象要素（气温、气压、湿度、风向风速等），自动合并同一分钟数据并保留两位小数。
-- **智能补充指标**：根据上传数据计算海平面气压与露点温度，减少终端侧计算负担。
-- **快速查询**：`GET /api/get/info` 可按站点+时间获取最近数据，并返回全部可绘制气象要素。
-- **图像服务**：`GET /api/get/image` 生成多要素折线图，图片以 UUID 命名，使用一次性 token 在 120 秒内访问。
-- **自清理机制**：后台线程定期回收过期 token 及对应图片，确保存储目录纤细可控。
-- **模块化设计**：`routes/` 管理 API，`services/` 负责绘图、初始化、工具函数，便于扩展。
+- **实时采集与补算**：`POST /api/upload` 接收站点分钟级观测，自动补算露点温度与海平面气压（当气温/气压/湿度齐全时）。
+- **PostgreSQL 持久化**：按“站点 + 日期”自动创建表 `table_{station}_{YYYY_MM_DD}`，图片令牌记录在 `image_tokens` 表中。
+- **可视化服务**：异步生成 Matplotlib 折线图，字体路径由 `config.yaml` 配置，支持多要素多子图。
+- **安全的图片访问**：每张图生成一次性 token，120 秒内有效；后台线程定期删除过期 token 及 PNG 文件。
+- **定位轨迹采集**：`POST /sensorlog` 将设备定位追加到 `data/sensorlog/{device}_{YYYY-MM-DD}.csv`，便于地图演示。
+- **可配置日志**：优先读取 `log_config.ini`，缺失时自动回退最小日志配置。 
 
----
-
-## 快速开始
-
-### 环境准备
+## 环境要求
 
 - Python 3.13+
-- 推荐 macOS / Linux 环境（Windows 需确保 Matplotlib 字体正常）
-- 字体文件 `fonts/ttf/PingFangSC-Light.ttf` 已随仓库提供，用于中文标注
+- PostgreSQL 实例（需具备建表权限）
+- 推荐 macOS / Linux 环境；Windows 需确认 Matplotlib 字体可用
 
-### 安装依赖
+## 配置
+
+在 `config.yaml` 设置数据库连接与字体路径：
+
+```yaml
+postgresql:
+  host: 127.0.0.1
+  port: 5432
+  database: postgres
+  username: postgres
+  password: your_password
+
+font_path: "fonts/ttf/PingFangSC-Light.ttf"
+```
+
+启动时会创建图片令牌表 `image_tokens`；气象数据表在首次上传时按需创建。
+
+## 安装
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows 使用 .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install fastapi[standard] pandas matplotlib seaborn uvicorn colorlog python-multipart pyinstaller
+python -m pip install fastapi[standard] pandas matplotlib seaborn uvicorn colorlog python-multipart pyinstaller psycopg2-binary pyyaml sqlalchemy
+# 可选：安装 uv 后执行 uv sync ，自动依据 uv.lock 安装依赖
 ```
 
-> 可选：安装 `uv` 后运行 `uv sync` ，将依据 `pyproject.toml` 安装全部依赖。
-
-### 启动服务
+## 启动服务
 
 ```bash
 python main.py
-# 或使用 uv
+# 或
 uv run main.py
 ```
 
-默认监听 `0.0.0.0:7763`。首次启动会自动创建 `data/`, `images/`, `logs/` 等目录，并加载自定义日志配置。
+默认监听 `0.0.0.0:7763`。启动时会创建 `data/`、`images/`、`logs/`、`data/sensorlog/` 等目录并加载日志配置。
 
-### 健康检查
+## API 概览
+
+| 路径 | 方法 | 说明 |
+| ---- | ---- | ---- |
+| `/api/upload` | POST | 上传气象要素，补算露点和海压，写入 PostgreSQL（按站点 + 日期建表）。 |
+| `/api/get/info` | GET | 获取指定站点当日最新观测。 |
+| `/api/get/image` | GET | 生成指定站点、日期、要素列表的折线图，返回一次性图片令牌。 |
+| `/image` | GET | 消耗一次性图片令牌并返回 PNG。 |
+| `/sensorlog` | POST | 接收定位数据并追加到 CSV，供地图演示。 |
+
+### `/api/upload`
+
+- **Body**：`services.config.meteorological_elements` 字段（如 `station_name`、`timestamp`、`temperature`、`pressure`、`relative_humidity`、`wind_speed`、`wind_direction` 等）。
+- **处理**：若气温/气压/湿度齐全则补算 `sea_level_pressure`、`dew_point`；UTC 时间写入 `time_utc`。
+- **存储**：写入 `table_{station_name}_{YYYY_MM_DD}`，表不存在会自动创建。
+
+示例：
 
 ```bash
 curl -X POST http://127.0.0.1:7763/api/upload \
@@ -53,99 +81,58 @@ curl -X POST http://127.0.0.1:7763/api/upload \
   -d '{"station_name":"demo","temperature":25.6,"pressure":1013,"relative_humidity":78}'
 ```
 
-成功后可以访问 `http://127.0.0.1:7763/docs` 查看自动生成的 Swagger 文档。
-
----
-
-## API 概览
-
-| 路径 | 方法 | 说明 |
-| ---- | ---- | ---- |
-| `/api/upload` | POST | 上传单条观测数据；自动聚合同一分钟内的记录，输出结构化 CSV。 |
-| `/api/get/info` | GET | 查询指定站点在某一时刻（或最近一次）的观测值集合。 |
-| `/api/get/image` | GET | 生成指定站点、日期、要素列表的折线图，返回一次性图片令牌。 |
-| `/image` | GET | 消耗一次性图片令牌并返回 PNG 文件。 |
-
-### `/api/upload`
-
-- **Body**：`config.meteorological_elements` 字段（JSON）
-- **自动处理**：
-  - 根据 `timestamp` 生成本地/UTC 时间列
-  - 计算 `sea_level_pressure` 与 `dew_point`
-  - 写入 `data/{station}_{YYYY-MM-DD}.csv`
-  - 暂存于 `data/tmp.csv` 用于分钟级聚合
-
 ### `/api/get/info`
 
-- **Query**：`station_name`（必填）、`time_local`（可选）
-- **返回**：`status`、`message`、`data`，其中 `data` 包含所有可绘制要素及时间戳
-- **要素筛选**：内部使用 `services.plot._select_plot_elements`，确保字段合法
+- **Query**：`station_name`（必填）
+- **返回**：当日最新一行记录；若当日表不存在返回 404。
 
 ### `/api/get/image`
 
-- **Query**：`station_name`、`date`（默认今天）、`elements`
-  - `elements` 支持 JSON 数组或逗号分隔字符串，例如 `["temperature","pressure"]` 或 `temperature,pressure`
-  - `all` 表示绘制所有允许要素
-- **返回**：`image_id` 和一次性访问 `url`
-- **图像行为**：
-  - Matplotlib 后端使用 `Agg`，适配无头环境
-  - 输出文件位于 `images/{uuid}.png`
-  - 令牌 120 秒内有效，消费或过期后自动删除
+- **Query**：`station_name`（必填）、`date`（可选，默认当天，格式 `YYYY_MM_DD`）、`elements`
+  - `elements` 支持 JSON 数组或逗号分隔字符串；`all` 表示全部允许要素。
+- **返回**：`image_id` 与一次性访问 `url`。
+- **行为**：图保存在 `images/{uuid}.png`，token 120 秒内有效且单次消费。
 
----
+### `/image`
 
-## 数据与图像处理流程
+- **Query**：`image_token`
+- **说明**：验证后立即删除 token，文件由清理线程回收。
 
-1. **写入**：上传数据首先进入 `data/tmp.csv`，系统以站点+分钟为粒度聚合后写入目标 CSV。
-2. **读取**：绘图时按日期读取 `data/{station}_{YYYY-MM-DD}.csv`，自动过滤缺失列并进行类型转换。
-3. **降采样**：可根据需要引入 `services.plot._downsample_evenly` 做等距抽样，避免大数据量导致绘图变慢。
-4. **绘图**：每个要素独立子图，Y 轴单位由配置驱动，X 轴使用 `%m-%d %H:%M` 格式。
-5. **清理**：`services.utils.clean_expired_image_tokens` 线程每 10 秒扫描一次，删除超时图片及令牌。
+### `/sensorlog`
 
----
+- **Body**：`deviceID`、`locationTimestamp_since1970`、`locationLatitude`、`locationLongitude`、`locationSpeed`、`locationHorizontalAccuracy` 等（额外字段会被忽略）。
+- **存储**：追加到 `data/sensorlog/{device}_{YYYY-MM-DD}.csv`，文件自动按天分割。
+
+## 数据与图片流程
+
+1. 上传数据写入 PostgreSQL；站点/日期表按需创建。
+2. 绘图时从对应表读取指定要素，生成 PNG 并写入 `images/`，令牌信息写入 `image_tokens`。
+3. 后台线程每 5 秒检查 `image_tokens`，对超时（>120 秒）的 token 删除数据库记录并移除对应图片。
 
 ## 目录结构
 
 ```
 .
-├── data/               # 站点数据 CSV（运行时生成）
-├── fonts/              # 中文显示所需字体
-├── images/             # 渲染后的折线图（运行时生成并定期清理）
-├── logs/               # 运行日志输出目录
-├── routes/             # FastAPI 路由定义
-│   ├── get.py          # 查询类接口
-│   └── post.py         # 上传接口
-├── services/           # 业务服务层
-│   ├── bootstrap.py    # 目录创建与日志配置加载
-│   ├── plot.py         # 数据读取与 Matplotlib 绘图
-│   └── utils.py        # 令牌缓存与数据清洗工具
-├── config.py           # Pydantic 模型与要素配置
-├── log_config.ini      # uvicorn 日志配置
-├── main.py             # FastAPI 应用入口
-├── pyproject.toml      # 项目依赖声明
-└── README.md
+├── config.yaml        # 数据库与字体配置
+├── fonts/             # 中文显示所需字体
+├── images/            # 渲染后的折线图（运行时生成并定期清理）
+├── data/              # 运行时数据（包含 sensorlog 子目录）
+├── logs/              # 运行日志输出目录
+├── routes/            # API 路由（get/post）
+├── services/          # 业务层（配置、绘图、数据库、工具、初始化）
+├── static/            # AMap 地图演示页资源
+├── web/               # WebSocket 地图后端（未默认挂载路由）
+├── main.py            # FastAPI 应用入口
+├── log_config.ini     # uvicorn 日志配置（可选）
+└── pyproject.toml     # 依赖声明
 ```
 
----
+## 开发与扩展
 
-## 日志与监控
+- 在 `services/config.py` 的 `ALLOWED_ELEMENTS` / `ELEMENTS` 中扩展可用要素，即可同步影响校验和绘图展示。
+- 如需接入其他数据库，可在 `services/postgresql.py` 中调整 `engine` 创建与表结构。
+- 生产部署建议使用 `uvicorn main:app --host 0.0.0.0 --port 7763 --workers 2` 或容器化，并配置数据库账号最小权限。
 
-- 默认日志记录到标准输出，也可根据 `log_config.ini` 写入文件。
-- 关键事件（图像生成、令牌清理）通过 `uvicorn.app` 日志器输出。
-- 若未找到 `log_config.ini`，将退回最小化日志配置并写入临时文件。
+## 许可证
 
----
-
-## 开发建议
-
-- **元素扩展**：在 `config.ELEMENTS` 中追加待绘制要素即可同步影响上传校验与绘图标题。
-- **持久化**：当前使用 CSV 储存，可替换为数据库并在 `services.plot._read_station_data` 中调整读取逻辑。
-- **安全加固**：可在 FastAPI 中引入 OAuth2/JWT，对上传与查询接口增加鉴权。
-- **部署**：生产环境建议通过 `uvicorn main:app --host 0.0.0.0 --port 7763 --workers 2` 或使用容器化方案。
-
----
-
-## 许可证 & 贡献
-
-- 许可证：MIT License
-- 欢迎通过 Issues / Pull Requests 反馈问题或提交改进建议。
+- MIT License，欢迎通过 Issues / PR 提交改进。

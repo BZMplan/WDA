@@ -8,7 +8,8 @@ from matplotlib import dates
 from matplotlib.ticker import FuncFormatter
 from matplotlib import font_manager
 from services.postgresql import get_table_data
-import config as cfg
+from services.load_config import CONFIG
+import services.config as cfg
 import matplotlib.pyplot as plt
 import logging
 import uuid
@@ -16,7 +17,7 @@ import uuid
 logger = logging.getLogger("uvicorn.app")  # 子日志器，继承 uvicorn 的配置
 
 # 设置绘图字体
-font_path = "fonts/ttf/PingFangSC-Light.ttf"
+font_path = CONFIG.get("font_path")
 
 font_manager.fontManager.addfont(font_path)
 font = font_manager.FontProperties(fname=font_path)
@@ -55,7 +56,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
         .dt.tz_convert("Asia/Shanghai")
         .dt.tz_localize(None)
     )
-    
+
     for ax, (column, title, unit, color) in zip(axes_list, plot_elements):
         ax.plot(plot_df["time_local"], plot_df[column], color=color, linewidth=1.2)
         ax.set_title(title, fontsize=18)

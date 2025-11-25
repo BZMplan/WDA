@@ -1,3 +1,4 @@
+import logging
 from pandas import DataFrame
 from sqlalchemy import (
     create_engine,
@@ -14,9 +15,19 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 from typing import Any, Dict, List, Optional
+from services.load_config import CONFIG
 
+
+logger = logging.getLogger("uvicorn.app")
 # 建议在实际项目中将此 URL 放入配置文件或环境变量中
-DATABASE_URL = "postgresql+psycopg2://postgres:eothkl123@192.168.10.126:5432/postgres"
+
+
+username = CONFIG.get("postgresql", {}).get("username")
+password = CONFIG.get("postgresql", {}).get("password")
+host = CONFIG.get("postgresql", {}).get("host")
+port = CONFIG.get("postgresql", {}).get("port")
+database = CONFIG.get("postgresql", {}).get("database")
+DATABASE_URL = f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database}"
 
 engine: Engine = create_engine(DATABASE_URL, echo=False)
 metadata: MetaData = MetaData()
@@ -57,6 +68,7 @@ def _define_and_create_table(table_name: str, columns: List[Column]):
             get_table(table_name)
         except RuntimeError:
             # 如果表已存在但结构无法通过反射获取，可能是权限问题或其他，此处简单跳过
+
             pass
         return
 
