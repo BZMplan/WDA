@@ -8,9 +8,6 @@ from services import postgresql
 
 logger = logging.getLogger("uvicorn.app")
 
-# 后续将存贮在数据库里
-one_time_image_tokens = {}
-
 
 # 清理过期的图片
 def clean_expired_image_tokens():
@@ -33,7 +30,7 @@ def clean_expired_image_tokens():
             postgresql.delete_row("image_tokens", "file_name", file_name)
             logger.info(f"{file_path}过期，已删除")
 
-        time.sleep(10)  # 每10秒检查一次
+        time.sleep(5)  # 每5秒检查一次
 
 
 # 数值计算功能函数

@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
+from fastapi import APIRouter, HTTPException, Response, status, Query
 from fastapi.responses import FileResponse
 from services import postgresql
 from services import plot
@@ -23,18 +23,10 @@ logger = logging.getLogger("uvicorn.app")
 # 获取实时站点数据
 @router.get("/api/get/info")
 async def api_get_info(
-    item: cfg.queryable_elements = Depends(),
+    station_name: str = None,
 ):
-
-    # if item.time_local:
-    #     time_local = item.time_local.strftime("%Y-%m-%d %H:%M")
-    #     date = time_local
-    # else:
-    #     date = pd.to_datetime(datetime.now()).strftime("%Y-%m-%d %H:%M")
-
-    station_name = item.station_name
-    timestamp = item.timestamp if item.timestamp is not None else int(time.time())
-    # time_utc = (pd.to_datetime(date) + timedelta(hours=-8)).strftime("%Y-%m-%d %H:%M")
+    station_name = station_name
+    timestamp = int(time.time())
 
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
     table_name = f"table_{station_name}_{day}"

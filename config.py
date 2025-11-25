@@ -65,24 +65,5 @@ class meteorological_elements(BaseModel):
     wind_speed: Optional[float] = None  # 风速
     wind_direction: Optional[float] = None  # 风向
 
-    # @field_validator("timestamp")
-    # @classmethod
-    # def check_timestamp(cls, v):
-    #     now = int(time.time())
-    #     if v is None:
-    #         return v
-    #     if abs(now - v) > 10:
-    #         raise ValueError("timestamp may be wrong, please check it.")
-    #     return v
-
-    class Config:
-        extra = "ignore"
-
-
-class queryable_elements(BaseModel):
-    station_name: str = None  # 站点名称
-    timestamp: Optional[int] = None  # 时间戳
-    time_utc: Optional[datetime] = None  # utc时间
-
     class Config:
         extra = "ignore"
