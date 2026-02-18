@@ -15,8 +15,12 @@ def setup_dirs(base=".", names=("data", "images", "logs")):
     """
     初始化运行所需的外部文件夹。
 
-    - 默认在当前工作目录创建 data/images/logs
-    - 允许通过 base/names 定制，保持向后兼容
+    默认在当前工作目录创建 data/images/logs
+    允许通过 base/names 定制，保持向后兼容
+
+    参数:
+        base (str): 基础路径，默认为当前目录
+        names (Iterable[str]): 文件夹名称列表
     """
     base_path = Path(base)
     created = []
@@ -33,7 +37,12 @@ def init_postgresql():
 
 
 def _find_log_config_path():
-    """在常见位置查找 log_config.ini。找不到则返回 None。"""
+    """
+    在常见位置查找 log_config.ini。找不到则返回 None。
+
+    返回:
+        Optional[Path]: 配置文件路径或 None
+    """
     candidates = [
         Path.cwd() / "log_config.ini",
         Path(__file__).resolve().parent.parent / "log_config.ini",
@@ -45,7 +54,15 @@ def _find_log_config_path():
 
 
 def _write_temp_config(content):
-    """将配置写入临时 .ini 文件并注册退出清理，返回文件路径。"""
+    """
+    将配置写入临时 .ini 文件并注册退出清理，返回文件路径。
+
+    参数:
+        content (str): 配置内容
+
+    返回:
+        str: 临时文件路径
+    """
     tmp = tempfile.NamedTemporaryFile(
         mode="w", suffix=".ini", delete=False, encoding="utf-8"
     )
@@ -65,6 +82,9 @@ def setup_log_config():
     - 打包环境（sys.frozen）：从临时目录读取原始配置并复制到可写的临时文件
     - 开发环境：优先使用当前工作目录/项目根的 log_config.ini
     - 若找不到配置文件，则生成最小可用的日志配置到临时文件并返回
+
+    返回:
+        str: 日志配置文件路径
     """
     minimal_config = """
 [loggers]

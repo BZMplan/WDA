@@ -37,6 +37,15 @@ def get_table(table_name: str) -> Table:
     """
     从缓存或数据库中获取 Table 对象。
     如果缓存中没有，则尝试通过反射（autoload）加载。
+
+    参数:
+        table_name (str): 表名
+
+    返回:
+        Table: SQLAlchemy 表对象
+
+    异常:
+        RuntimeError: 当表不存在时
     """
     if table_name in _TABLE_CACHE:
         return _TABLE_CACHE[table_name]
@@ -51,13 +60,28 @@ def get_table(table_name: str) -> Table:
 
 
 def table_exists(table_name: str, schema: Optional[str] = None) -> bool:
-    """检测某个表是否存在"""
+    """
+    检测某个表是否存在
+
+    参数:
+        table_name (str): 表名
+        schema (str, optional): 数据库 schema
+
+    返回:
+        bool: 表是否存在
+    """
     insp = inspect(engine)
     return insp.has_table(table_name, schema=schema)
 
 
 def _define_and_create_table(table_name: str, columns: List[Column]):
-    """私有通用方法：定义并创建表"""
+    """
+    私有通用方法：定义并创建表
+
+    参数:
+        table_name (str): 表名
+        columns (List[Column]): 列定义列表
+    """
     if table_exists(table_name):
         try:
             get_table(table_name)
@@ -71,7 +95,12 @@ def _define_and_create_table(table_name: str, columns: List[Column]):
 
 
 def create_weather_data_table(table_name: str):
-    """创建天气数据表"""
+    """
+    创建天气数据表
+
+    参数:
+        table_name (str): 表名
+    """
     columns = [
         Column("id", Integer, primary_key=True, autoincrement=True),
         Column("station_name", String(64), nullable=False),
@@ -88,7 +117,12 @@ def create_weather_data_table(table_name: str):
 
 
 def create_image_tokons_table(table_name: str):
-    """创建图片 Token 映射表"""
+    """
+    创建图片 Token 映射表
+
+    参数:
+        table_name (str): 表名
+    """
     columns = [
         Column("id", Integer, primary_key=True, autoincrement=True),
         Column("file_name", String, nullable=False, unique=True),
@@ -101,8 +135,13 @@ def create_image_tokons_table(table_name: str):
 def insert_data(table_name: str, data: Dict[str, Any]) -> Optional[int]:
     """
     向指定表插入一行数据。
-    data 是 {列名: 值} 的字典。
-    返回插入行的主键 id（如果有）。
+
+    参数:
+        table_name (str): 表名
+        data (Dict[str, Any]): 数据字典，键为列名，值为数据
+
+    返回:
+        Optional[int]: 插入行的主键 id（如果有）
     """
     if not table_exists(table_name) and table_name == "image_tokens":
         create_image_tokons_table(table_name)
@@ -116,7 +155,16 @@ def insert_data(table_name: str, data: Dict[str, Any]) -> Optional[int]:
 
 
 def get_table_data(table_name: str, columns: List[str]) -> DataFrame:
-    """获取指定列的所有数据"""
+    """
+    获取指定列的所有数据
+
+    参数:
+        table_name (str): 表名
+        columns (List[str]): 列名列表
+
+    返回:
+        DataFrame: 查询结果
+    """
     table = get_table(table_name)
     selected_cols = [table.c[col] for col in columns]
 
@@ -128,7 +176,16 @@ def get_table_data(table_name: str, columns: List[str]) -> DataFrame:
 
 
 def get_latest_data(table_name: str, time_column: str = "time_utc") -> DataFrame:
-    """获取表中最新的单条数据，默认按 time_utc 排序"""
+    """
+    获取表中最新的单条数据，默认按 time_utc 排序
+
+    参数:
+        table_name (str): 表名
+        time_column (str): 时间列名，默认为 "time_utc"
+
+    返回:
+        DataFrame: 最新的一条数据
+    """
     table = get_table(table_name)
 
     if time_column not in table.c:
@@ -144,6 +201,14 @@ def get_latest_data(table_name: str, time_column: str = "time_utc") -> DataFrame
 def search_data(table_name: str, column: str, value: Any) -> Optional[DataFrame]:
     """
     根据表名、列名和数据值，返回匹配的行数据（DataFrame）。
+
+    参数:
+        table_name (str): 表名
+        column (str): 列名
+        value (Any): 匹配值
+
+    返回:
+        Optional[DataFrame]: 匹配的数据，如果没有则返回 None
     """
     table = get_table(table_name)
 
@@ -161,7 +226,14 @@ def search_data(table_name: str, column: str, value: Any) -> Optional[DataFrame]
 def delete_row(table_name: str, column: str, value: Any) -> int:
     """
     根据表名、列名和数据值，删除匹配的行。
-    返回删除的行数。
+
+    参数:
+        table_name (str): 表名
+        column (str): 列名
+        value (Any): 匹配值
+
+    返回:
+        int: 删除的行数
     """
     table = get_table(table_name)
 

@@ -1,5 +1,6 @@
 import logging
 import uuid
+from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -30,14 +31,36 @@ ELEMENT_MAP = {
 
 
 def _select_plot_elements(plot_elements):
-    """根据传入列名筛选参数配置"""
+    """
+    根据传入列名筛选参数配置
+
+    参数:
+        plot_elements: 要绘制的要素列表 (List[str])
+
+    返回:
+        List[Tuple]: 筛选后的要素配置列表
+    """
     if not plot_elements:
         return cfg.ELEMENTS
     return [ELEMENT_MAP[p] for p in plot_elements if p in ELEMENT_MAP]
 
 
 def _make_plots(plot_df, plot_elements, station_name, title_suffix):
-    """统一的绘图函数"""
+    """
+    统一的绘图函数
+
+    参数:
+        plot_df (pd.DataFrame): 绘图数据
+        plot_elements (List[Tuple]): 要素配置列表
+        station_name (str): 站点名称
+        title_suffix (str): 标题后缀
+
+    返回:
+        Tuple[str, str]: (文件名, 图片ID)
+
+    异常:
+        ValueError: 当没有有效的列可绘制时
+    """
     if len(plot_elements) == 0:
         raise ValueError("No valid columns to plot.")
     n = len(plot_elements)
@@ -85,7 +108,17 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
 
 
 def setup(station_name, table_name=None, elements=None):
-    """绘图初始化函数"""
+    """
+    绘图初始化函数
+
+    参数:
+        station_name (str): 站点名称
+        table_name (str, optional): 数据表名
+        elements (List[str], optional): 要绘制的要素列表
+
+    返回:
+        Tuple[str, str]: (文件名, 图片ID)
+    """
     plot_elements = _select_plot_elements(elements)
     selected_cols = [name for name, *_ in plot_elements]
     selected_cols.append("time_utc")

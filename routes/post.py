@@ -17,7 +17,15 @@ logger = logging.getLogger("uvicorn.app")
 
 @router.post("/api/upload")
 async def api_upload(item: cfg.meteorological_elements) -> Dict[str, Any]:
-    """上传站点数据"""
+    """
+    上传站点数据
+
+    参数:
+        item: 气象要素数据模型 (meteorological_elements)
+
+    返回:
+        Dict[str, Any]: 包含状态码、消息和数据的字典
+    """
     timestamp = item.timestamp or int(time.time())
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
     table_name = f"table_{item.station_name}_{day}"
@@ -67,7 +75,15 @@ async def api_upload(item: cfg.meteorological_elements) -> Dict[str, Any]:
 
 @router.post("/sensorlog")
 async def sensorlog(item: cfg.location) -> Dict[str, Any]:
-    """接收senerlog软件上传的数据"""
+    """
+    接收senerlog软件上传的数据
+
+    参数:
+        item: 定位数据模型 (location)
+
+    返回:
+        Dict[str, Any]: 包含状态码、消息和数据的字典
+    """
     server_timestamp = int(time.time())
     day = time.strftime("%Y-%m-%d", time.localtime(item.locationTimestamp_since1970))
     file_name = f"{item.deviceID}_{day}.csv"

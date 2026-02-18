@@ -9,7 +9,15 @@ logger = logging.getLogger("uvicorn.app")
 
 
 def clean_expired_image_tokens():
-    """清理过期的图片"""
+    """
+    清理过期的图片
+
+    后台线程函数，每5秒检查一次image_tokens表，
+    删除超过120秒的过期图片文件和数据库记录。
+
+    注意:
+        此函数包含无限循环，应在后台线程中运行。
+    """
     while True:
         current_time = time.time()
         result = postgresql.get_table_data("image_tokens", ["create_time", "file_name"])
@@ -34,14 +42,14 @@ def calc_sea_level_pressure(temp_c, pressure_hpa, humidity_percent, altitude_m):
     """
     计算海平面气压（hPa）
 
-    参数：
-        temp_c: 气温（℃）
-        pressure_hpa: 测站气压（hPa）
-        humidity_percent: 相对湿度（%）
-        altitude_m: 海拔（m）
+    参数:
+        temp_c (float): 气温（℃）
+        pressure_hpa (float): 测站气压（hPa）
+        humidity_percent (float): 相对湿度（%）
+        altitude_m (float): 海拔（m）
 
-    返回：
-        海平面气压（hPa）
+    返回:
+        float: 海平面气压（hPa），保留两位小数
     """
     import math
 
@@ -71,14 +79,14 @@ def calc_dew_point(temp_c, humidity_percent):
     """
     计算露点温度（℃）
 
-    参数：
-        temp_c: 气温（℃）
-        humidity_percent: 相对湿度（%）
+    参数:
+        temp_c (float): 气温（℃）
+        humidity_percent (float): 相对湿度（%）
 
-    返回：
-        露点温度（℃）
+    返回:
+        float: 露点温度（℃），保留两位小数
 
-    公式来源：
+    公式来源:
         Magnus-Tetens 经验公式（适用于 -45℃ ~ 60℃）
     """
     import math

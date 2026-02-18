@@ -1,12 +1,12 @@
 import asyncio
+import math
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
 
+import pandas as pd
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
-import pandas as pd
-import math
 
 router = APIRouter()
 
@@ -17,6 +17,14 @@ STALE_THRESHOLD = timedelta(minutes=1)
 
 @router.get("/data")
 def get_data():
+    """
+    获取定位数据
+
+    读取 CSV 文件并返回所有定位数据。
+
+    返回:
+        JSONResponse: 包含定位数据的 JSON 响应
+    """
     df = pd.read_csv(DATA_FILE)
     df = df.dropna(subset=["latitude", "longitude"])
     return JSONResponse(df.to_dict(orient="records"))
@@ -24,6 +32,14 @@ def get_data():
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket 端点，实时推送定位数据
+
+    每 2 秒推送一次最新位置数据，如果数据超过 1 分钟则标记为过期。
+
+    参数:
+        websocket (WebSocket): WebSocket 连接对象
+    """
     await websocket.accept()
     clients.add(websocket)
     try:
@@ -53,12 +69,18 @@ async def websocket_endpoint(websocket: WebSocket):
                 latest["stale"] = False
                 latest["last_time"] = _format_timestamp(timestamp)
                 await websocket.send_json(latest)
-            await asyncio.sleep(2)  # 每 2 秒推送一次最新位置
+            await asyncio.sleep(2)
     except WebSocketDisconnect:
         clients.remove(websocket)
 
 
 def _load_latest_record() -> Tuple[Optional[dict], Optional[datetime]]:
+    """
+    加载最新记录
+
+    返回:
+        Tuple[Optional[dict], Optional[datetime]]: (最新记录字典, 时间戳)
+    """
     if not DATA_FILE.exists():
         return None, None
     try:
@@ -76,6 +98,15 @@ def _load_latest_record() -> Tuple[Optional[dict], Optional[datetime]]:
 
 
 def _extract_timestamp(record: dict) -> Optional[datetime]:
+    """
+    从记录中提取时间戳
+
+    参数:
+        record (dict): 数据记录
+
+    返回:
+        Optional[datetime]: 提取的时间戳或 None
+    """
     for field in ("time_local", "time_utc"):
         value = record.get(field)
         if isinstance(value, str) and value.strip():
@@ -96,6 +127,15 @@ def _extract_timestamp(record: dict) -> Optional[datetime]:
 
 
 def _is_stale(timestamp: Optional[datetime]) -> bool:
+    """
+    检查数据是否过期
+
+    参数:
+        timestamp (Optional[datetime]): 时间戳
+
+    返回:
+        bool: 是否过期（超过1分钟）
+    """
     if timestamp is None:
         return True
     now = datetime.now(timestamp.tzinfo) if timestamp.tzinfo else datetime.now()
@@ -103,12 +143,31 @@ def _is_stale(timestamp: Optional[datetime]) -> bool:
 
 
 def _format_timestamp(timestamp: Optional[datetime]) -> Optional[str]:
+    """
+    格式化时间戳
+
+    参数:
+        timestamp (Optional[datetime]): 时间戳
+
+    返回:
+        Optional[str]: 格式化后的字符串或 None
+    """
     if not timestamp:
         return None
     return timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def wgs84_to_gcj02(lon, lat):
+    """
+    WGS84 坐标系转 GCJ02 坐标系（火星坐标系）
+
+    参数:
+        lon (float): 经度
+        lat (float): 纬度
+
+    返回:
+        Tuple[float, float]: (转换后的经度, 转换后的纬度)
+    """
     a = 6378245.0
     ee = 0.00669342162296594323
     if lon < 72.004 or lon > 137.8347 or lat < 0.8293 or lat > 55.8271:
@@ -127,6 +186,16 @@ def wgs84_to_gcj02(lon, lat):
 
 
 def _transform_lat(x, y):
+    """
+    坐标转换辅助函数 - 纬度变换
+
+    参数:
+        x (float): x 坐标差值
+        y (float): y 坐标差值
+
+    返回:
+        float: 变换后的纬度偏移量
+    """
     ret = (
         -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * math.sqrt(abs(x))
     )
@@ -147,6 +216,16 @@ def _transform_lat(x, y):
 
 
 def _transform_lon(x, y):
+    """
+    坐标转换辅助函数 - 经度变换
+
+    参数:
+        x (float): x 坐标差值
+        y (float): y 坐标差值
+
+    返回:
+        float: 变换后的经度偏移量
+    """
     ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * math.sqrt(abs(x))
     ret += (
         (20.0 * math.sin(6.0 * x * math.pi) + 20.0 * math.sin(2.0 * x * math.pi))

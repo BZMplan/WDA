@@ -26,7 +26,20 @@ ELEMENTS = [
 
 
 class location(BaseModel):
-    """定位数据模型"""
+    """
+    定位数据模型
+
+    用于接收设备定位数据的 Pydantic 模型
+
+    属性:
+        deviceID (Optional[str]): 设备名称
+        locationTimestamp_since1970 (Optional[float]): 设备时间戳
+        locationAltitude (Optional[float]): 海拔
+        locationLatitude (Optional[float]): 纬度
+        locationLongitude (Optional[float]): 经度
+        locationSpeed (Optional[float]): 速度
+        locationHorizontalAccuracy (Optional[float]): 水平精确度
+    """
 
     deviceID: Optional[str] = None
     locationTimestamp_since1970: Optional[float] = None
@@ -39,6 +52,15 @@ class location(BaseModel):
     @field_validator("locationTimestamp_since1970")
     @classmethod
     def check_timestamp(cls, v):
+        """
+        校验时间戳
+
+        参数:
+            v: 输入的时间戳值
+
+        返回:
+            int: 处理后的时间戳
+        """
         now = time.time()
         if v is None:
             return int(v)
@@ -52,7 +74,23 @@ class location(BaseModel):
 
 
 class meteorological_elements(BaseModel):
-    """气象要素数据模型"""
+    """
+    气象要素数据模型
+
+    用于接收气象站数据的 Pydantic 模型
+
+    属性:
+        station_name (str): 站点名称
+        timestamp (Optional[int]): 时间戳
+        time_utc (Optional[datetime]): UTC时间
+        temperature (Optional[float]): 气温
+        pressure (Optional[float]): 气压
+        relative_humidity (Optional[float]): 相对湿度
+        dew_point (Optional[float]): 露点
+        sea_level_pressure (Optional[float]): 海压
+        wind_speed (Optional[float]): 风速
+        wind_direction (Optional[float]): 风向
+    """
 
     station_name: str = None
     timestamp: Optional[int] = None
