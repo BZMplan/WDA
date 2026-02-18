@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atlas 实时定位</title>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=a382e18cda52fe903b8ce2a93616e560"></script>
+  <style>
+    :root {
+      --border: #e5e7eb;
+      --muted: #6b7280;
+      --text: #111827;
+      --accent: #2563eb;
+      --bg: #f9fafb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    .map-area {
+      flex: 1;
+      position: relative;
+      min-height: 100vh;
+      background: #fff;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    .map-controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+      flex-wrap: wrap;
+    }
+
+    .map-controls label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.8rem;
+      color: var(--muted);
+      gap: 4px;
+    }
+
+    .map-controls select {
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .map-controls button {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      background: white;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .map-controls button:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .side-panel {
+      width: 340px;
+      border-left: 1px solid var(--border);
+      background: #fff;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .status-dot[data-state="online"] {
+      background: #22c55e;
+    }
+
+    .status-dot[data-state="offline"] {
+      background: #ef4444;
+    }
+
+    .status-dot[data-state="error"],
+    .status-dot[data-state="connecting"] {
+      background: #f59e0b;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .device-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .device-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, background-color 0.15s;
+    }
+
+    .device-item:hover {
+      border-color: var(--accent);
+    }
+
+    .device-item.is-active {
+      border-color: var(--accent);
+      background: rgba(37, 99, 235, 0.06);
+    }
+
+    .device-name {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .device-meta {
+      margin: 6px 0 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .device-coord {
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .empty-state {
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 32px 12px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        flex-direction: column;
+      }
+
+      .map-area {
+        min-height: 60vh;
+      }
+
+      .side-panel {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border);
+      }
+
+      #map {
+        position: relative;
+        width: 100%;
+        height: 60vh;
+      }
+
+      .map-controls {
+        position: static;
+        margin: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="map-area">
+      <div id="map"></div>
+      <div class="map-controls">
+        <label for="styleSelect">
+          地图风格
+          <select id="styleSelect">
+            <option value="normal">标准</option>
+            <option value="fresh">清新绿</option>
+            <option value="light">简约白</option>
+            <option value="dark">极夜黑</option>
+            <option value="grey">工业灰</option>
+          </select>
+        </label>
+        <button id="resetViewBtn" type="button">回到选中设备</button>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">在线设备</h2>
+        <span class="status-chip">
+          <span class="status-dot" id="statusDot" data-state="connecting"></span>
+          <span id="connectionStatus">连接中</span>
+        </span>
+      </div>
+      <ul id="deviceList" class="device-list">
+        <li class="empty-state" id="emptyState">等待设备上报位置...</li>
+      </ul>
+    </aside>
+  </div>
+
+  <script>
+    const defaultCenter = [117.257395, 31.861568];
+    const styleMap = {
+      normal: "amap://styles/normal",
+      fresh: "amap://styles/fresh",
+      light: "amap://styles/light",
+      dark: "amap://styles/dark",
+      grey: "amap://styles/grey",
+    };
+
+    const styleSelect = document.getElementById("styleSelect");
+    const resetViewBtn = document.getElementById("resetViewBtn");
+    const deviceListEl = document.getElementById("deviceList");
+    const emptyStateEl = document.getElementById("emptyState");
+    const statusDot = document.getElementById("statusDot");
+    const connectionStatus = document.getElementById("connectionStatus");
+    const defaultEmptyMessage = "等待设备上报位置...";
+    let emptyStateMessage = defaultEmptyMessage;
+
+    const savedStyleKey = localStorage.getItem("mapStyleKey");
+    const initialStyleKey = styleMap[savedStyleKey] ? savedStyleKey : "normal";
+    styleSelect.value = initialStyleKey;
+
+    const map = new AMap.Map("map", {
+      center: defaultCenter,
+      zoom: 15,
+      viewMode: "3D",
+      pitch: 45,
+      resizeEnable: true,
+      mapStyle: styleMap[initialStyleKey],
+    });
+
+    const sharedInfoWindow = new AMap.InfoWindow({
+      offset: new AMap.Pixel(0, -30),
+      closeWhenClickMap: true,
+    });
+
+    const deviceMarkers = new Map();
+    const deviceData = new Map();
+    let selectedDeviceId = null;
+    let anonymousCounter = 1;
+
+    const setConnectionState = (state, text) => {
+      statusDot.dataset.state = state;
+      connectionStatus.textContent = text;
+    };
+
+    const clearDeviceData = (message) => {
+      sharedInfoWindow.close();
+      deviceMarkers.forEach((marker) => marker.setMap(null));
+      deviceMarkers.clear();
+      deviceData.clear();
+      selectedDeviceId = null;
+      emptyStateMessage = message || defaultEmptyMessage;
+      renderDeviceList();
+    };
+
+    const handleStalePayload = (payload) => {
+      const message = payload?.message || "最新定位已超过 1 分钟，已暂停展示";
+      const statusText = payload?.last_time
+        ? `${message}（最后时间：${payload.last_time}）`
+        : message;
+      clearDeviceData(message);
+      setConnectionState("error", statusText);
+    };
+
+    const formatCoordinate = (value) => Number(value).toFixed(6);
+
+    const ensureSelection = () => {
+      if (!selectedDeviceId && deviceMarkers.size) {
+        selectedDeviceId = deviceMarkers.keys().next().value;
+      }
+    };
+
+    const focusOnDevice = (deviceId) => {
+      const marker = deviceMarkers.get(deviceId);
+      const data = deviceData.get(deviceId);
+      if (!marker || !data) return;
+
+      map.setZoomAndCenter(Math.max(map.getZoom(), 15), marker.getPosition());
+      if (data.infoHtml) {
+        sharedInfoWindow.setContent(data.infoHtml);
+        sharedInfoWindow.open(map, marker.getPosition());
+      }
+    };
+
+    const renderDeviceList = () => {
+      deviceListEl.innerHTML = "";
+
+      if (!deviceData.size) {
+        emptyStateEl.textContent = emptyStateMessage;
+        deviceListEl.appendChild(emptyStateEl);
+        emptyStateEl.style.display = "block";
+        return;
+      }
+
+      emptyStateEl.style.display = "none";
+
+      const entries = Array.from(deviceData.entries()).sort(
+        (a, b) => b[1].timestamp - a[1].timestamp
+      );
+
+      entries.forEach(([deviceId, info]) => {
+        const item = document.createElement("li");
+        item.className = `device-item${deviceId === selectedDeviceId ? " is-active" : ""}`;
+
+        const nameEl = document.createElement("p");
+        nameEl.className = "device-name";
+        nameEl.textContent = deviceId;
+
+        const metaEl = document.createElement("div");
+        metaEl.className = "device-meta";
+
+        const speedSpan = document.createElement("span");
+        speedSpan.textContent = info.speedText;
+        const timeSpan = document.createElement("span");
+        timeSpan.textContent = info.timeText;
+
+        metaEl.append(speedSpan, timeSpan);
+
+        const coordEl = document.createElement("div");
+        coordEl.className = "device-coord";
+        coordEl.textContent = info.coordinateText;
+
+        item.append(nameEl, metaEl, coordEl);
+
+        item.addEventListener("click", () => {
+          selectedDeviceId = deviceId;
+          focusOnDevice(deviceId);
+          renderDeviceList();
+        });
+
+        deviceListEl.appendChild(item);
+      });
+    };
+
+    styleSelect.addEventListener("change", (event) => {
+      const key = event.target.value;
+      if (styleMap[key]) {
+        map.setMapStyle(styleMap[key]);
+        localStorage.setItem("mapStyleKey", key);
+      }
+    });
+
+    resetViewBtn.addEventListener("click", () => {
+      ensureSelection();
+      if (selectedDeviceId && deviceMarkers.has(selectedDeviceId)) {
+        focusOnDevice(selectedDeviceId);
+      } else {
+        map.setZoomAndCenter(15, defaultCenter);
+      }
+    });
+
+    window.addEventListener("resize", () => map.resize());
+
+    const ws = new WebSocket(`ws://${window.location.host}/ws`);
+
+    ws.onopen = () => {
+      console.log("✅ WebSocket 已连接");
+      setConnectionState("online", "实时在线");
+    };
+
+    ws.onerror = () => {
+      console.error("WebSocket 连接出错");
+      setConnectionState("error", "通信异常");
+    };
+
+    ws.onclose = () => {
+      console.warn("WebSocket 已关闭");
+      setConnectionState("offline", "连接断开");
+    };
+
+    const resolveDeviceId = (data) => {
+      const candidates = [data.device_name, data.device_id, data.imei, data.id];
+      const found = candidates.find((entry) => entry && String(entry).trim().length);
+      if (found) {
+        return String(found).trim();
+      }
+      const fallback = `未知设备-${anonymousCounter++}`;
+      return fallback;
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.stale) {
+          handleStalePayload(data);
+          return;
+        }
+
+        const lat = Number(data.latitude);
+        const lon = Number(data.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          return;
+        }
+
+        setConnectionState("online", "实时在线");
+
+        const deviceId = resolveDeviceId(data);
+        const position = [lon, lat];
+
+        let marker = deviceMarkers.get(deviceId);
+        if (!marker) {
+          marker = new AMap.Marker({
+            position,
+            map,
+            title: deviceId,
+          });
+          marker.on("click", () => {
+            selectedDeviceId = deviceId;
+            focusOnDevice(deviceId);
+            renderDeviceList();
+          });
+          deviceMarkers.set(deviceId, marker);
+        } else {
+          marker.setPosition(position);
+        }
+
+        const infoHtml = `
+          <div style="min-width:200px;font-size:13px;">
+            <strong>${deviceId}</strong><br/>
+            时间：${data.time_local || "--"}<br/>
+            速度：${data.speed ?? "--"} km/h
+          </div>`;
+
+        marker.infoContent = infoHtml;
+
+        const speed = Number(data.speed);
+        const speedText = Number.isFinite(speed) ? `${speed.toFixed(1)} km/h` : "--";
+        const timeText = data.time_local || new Date().toLocaleString();
+        const infoRecord = {
+          speedText,
+          timeText,
+          coordinateText: `${formatCoordinate(lon)}, ${formatCoordinate(lat)}`,
+          timestamp: Date.now(),
+          infoHtml,
+        };
+
+        deviceData.set(deviceId, infoRecord);
+        emptyStateMessage = defaultEmptyMessage;
+        ensureSelection();
+
+        if (selectedDeviceId === deviceId && marker.infoContent) {
+          sharedInfoWindow.setContent(marker.infoContent);
+          sharedInfoWindow.open(map, marker.getPosition());
+        }
+
+        renderDeviceList();
+      } catch (error) {
+        console.error("解析位置数据失败:", error);
+      }
+    };
+  </script>
+</body>
+</html>

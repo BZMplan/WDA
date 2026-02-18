@@ -1,17 +1,17 @@
-from pathlib import Path
+import atexit
+import logging
 import os
 import sys
 import tempfile
-import logging
-import atexit
+from pathlib import Path
 from typing import Iterable
+
+from services.postgresql import create_image_tokons_table
 
 logger = logging.getLogger("uvicorn.app")
 
 
-def setup_dirs(
-    base: os.PathLike | str = ".", names: Iterable[str] = ("data", "images", "logs")
-) -> None:
+def setup_dirs(base=".", names=("data", "images", "logs")):
     """
     初始化运行所需的外部文件夹。
 
@@ -27,7 +27,12 @@ def setup_dirs(
     logger.info("初始化文件夹成功: %s", ", ".join(created))
 
 
-def _find_log_config_path() -> Path | None:
+def init_postgresql():
+    """初始化数据库"""
+    create_image_tokons_table("image_tokens")
+
+
+def _find_log_config_path():
     """在常见位置查找 log_config.ini。找不到则返回 None。"""
     candidates = [
         Path.cwd() / "log_config.ini",
@@ -39,7 +44,7 @@ def _find_log_config_path() -> Path | None:
     return None
 
 
-def _write_temp_config(content: str) -> str:
+def _write_temp_config(content):
     """将配置写入临时 .ini 文件并注册退出清理，返回文件路径。"""
     tmp = tempfile.NamedTemporaryFile(
         mode="w", suffix=".ini", delete=False, encoding="utf-8"
@@ -53,7 +58,7 @@ def _write_temp_config(content: str) -> str:
     return tmp.name
 
 
-def setup_log_config() -> str:
+def setup_log_config():
     """
     返回可供 uvicorn 使用的日志配置文件路径。
 
