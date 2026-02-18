@@ -1,36 +1,32 @@
+import logging
+import os
+import time
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
 from fastapi import APIRouter, status
+
+import services.config as cfg
 from services import utils
 from services.postgresql import create_weather_data_table, insert_data, table_exists
 
-import logging
-import services.config as cfg
-import os
-import time
-import pandas as pd
-
-
-# 设置路由
-router = APIRouter(
-    tags=["post"],  # 在 OpenAPI 文档中为这些路由添加一个标签
-)
+router = APIRouter(tags=["post"])
 
 logger = logging.getLogger("uvicorn.app")
 
 
-# 上传站点数据
 @router.post("/api/upload")
-async def api_upload(item: cfg.meteorological_elements):
-
-    # 简化时间处理
+async def api_upload(item: cfg.meteorological_elements) -> Dict[str, Any]:
+    """上传站点数据"""
     timestamp = item.timestamp or int(time.time())
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
     table_name = f"table_{item.station_name}_{day}"
 
-    # 统一空值处理函数
     def nullify(value):
+        """统一空值处理函数"""
         return None if value is None else value
 
-    # 计算衍生值（封装到独立函数）
+    # 计算衍生值
     sea_level_pressure = (
         utils.calc_sea_level_pressure(
             item.temperature, item.pressure, item.relative_humidity, 27.5
@@ -45,10 +41,9 @@ async def api_upload(item: cfg.meteorological_elements):
         else None
     )
 
-    # 构建数据行（使用字典推导式统一处理空值）
+    # 构建数据行
     row = {
         "station_name": item.station_name,
-        # 只存储utc时间
         "time_utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(timestamp)),
         **{field: nullify(getattr(item, field)) for field in cfg.ALLOWED_ELEMENTS},
         "sea_level_pressure": nullify(sea_level_pressure),
@@ -57,7 +52,6 @@ async def api_upload(item: cfg.meteorological_elements):
 
     # 数据库操作封装
     try:
-        # 合并表存在检查和创建
         if not table_exists(table_name):
             create_weather_data_table(table_name)
         insert_data(table_name, row)
@@ -71,11 +65,9 @@ async def api_upload(item: cfg.meteorological_elements):
     return {"status": status.HTTP_200_OK, "message": "Upload success", "data": row}
 
 
-# 接收senerlog软件上传的数据
-# 暂存
 @router.post("/sensorlog")
-async def sensorlog(item: cfg.location):
-
+async def sensorlog(item: cfg.location) -> Dict[str, Any]:
+    """接收senerlog软件上传的数据"""
     server_timestamp = int(time.time())
     day = time.strftime("%Y-%m-%d", time.localtime(item.locationTimestamp_since1970))
     file_name = f"{item.deviceID}_{day}.csv"
@@ -98,7 +90,6 @@ async def sensorlog(item: cfg.location):
 
     try:
         df = pd.DataFrame([row])
-
         df.to_csv(
             file_path,
             index=False,

@@ -1,59 +1,58 @@
-from datetime import datetime
-from fastapi import APIRouter, HTTPException, Response, status, Query
-from fastapi.responses import FileResponse
-from services import postgresql
-from services import plot
-import services.config as cfg
-import uuid
-import json
-import time
-import pandas as pd
-import os
 import asyncio
+import json
 import logging
+import os
+import time
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-# 设置路由
-router = APIRouter(
-    tags=["get"],  # 在 OpenAPI 文档中为这些路由添加一个标签
-)
+import pandas as pd
+from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi.responses import FileResponse
+
+import services.config as cfg
+from services import plot, postgresql
+
+router = APIRouter(tags=["get"])
 
 logger = logging.getLogger("uvicorn.app")
 
 
-# 获取实时站点数据
 @router.get("/api/get/info")
 async def api_get_info(
     station_name: str = None,
-):
-    station_name = station_name
+) -> Dict[str, Any]:
+    """获取实时站点数据"""
     timestamp = int(time.time())
-
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
     table_name = f"table_{station_name}_{day}"
 
-    # 如果表不存在，则直接范围无数据
     if not postgresql.table_exists(table_name):
         return {
             "status": status.HTTP_404_NOT_FOUND,
             "message": "无数据",
             "data": None,
         }
+
     data = postgresql.get_latest_data(table_name)
     if data is not None and isinstance(data, pd.DataFrame):
         data = data.to_dict(orient="records")
-    logging.info("数据查询成功")
+
+    logger.info("数据查询成功")
     return {"status": status.HTTP_200_OK, "message": "成功获取数据", "data": data}
 
 
-# 发送请求获取对应图片的url
 @router.get("/api/get/image")
 async def api_get_image(
     station_name: str,
     date: str = None,
     elements: str = Query(...),
-):
+) -> Dict[str, Any]:
+    """发送请求获取对应图片的url"""
     if not date:
         date = datetime.now().strftime("%Y_%m_%d")
+
     try:
         date = pd.to_datetime(date, format="%Y_%m_%d").strftime("%Y_%m_%d")
     except (ValueError, TypeError):
@@ -116,15 +115,16 @@ async def api_get_image(
         }
 
 
-# 显示图片资源
 @router.get("/image")
-async def image(image_token: str):
+async def image(image_token: str) -> FileResponse:
+    """显示图片资源"""
     result = postgresql.search_data("image_tokens", "image_token", image_token)
     data = (
         None if result is None else next(iter(result.to_dict(orient="index").values()))
     )
     if not data:
         raise HTTPException(status_code=403, detail="URL无效或已过期/已使用")
+
     _, file_name = data["create_time"], data["file_name"]
 
     # 一次性 token：消费后移除，文件由清理线程回收
@@ -133,6 +133,6 @@ async def image(image_token: str):
 
 
 @router.get("/favicon.ico", include_in_schema=False)
-async def favicon():
-    # return FileResponse(os.path.join("static", "favicon.ico"))
+async def favicon() -> Response:
+    """Favicon endpoint"""
     return Response(status_code=204)

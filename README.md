@@ -3,16 +3,17 @@
 一个基于 **FastAPI** 的气象站数据上传、查询与可视化服务，使用 PostgreSQL 持久化观测值，支持 Matplotlib 异步绘图，并通过一次性令牌控制图片访问。
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/BZMplan/WDA)
+
 ---
 
 ## 功能亮点
 
 - **实时采集与补算**：`POST /api/upload` 接收站点分钟级观测，自动补算露点温度与海平面气压（当气温/气压/湿度齐全时）。
-- **PostgreSQL 持久化**：按“站点 + 日期”自动创建表 `table_{station}_{YYYY_MM_DD}`，图片令牌记录在 `image_tokens` 表中。
+- **PostgreSQL 持久化**：按"站点 + 日期"自动创建表 `table_{station}_{YYYY_MM_DD}`，图片令牌记录在 `image_tokens` 表中。
 - **可视化服务**：异步生成 Matplotlib 折线图，字体路径由 `config.yaml` 配置，支持多要素多子图。
 - **安全的图片访问**：每张图生成一次性 token，120 秒内有效；后台线程定期删除过期 token 及 PNG 文件。
 - **定位轨迹采集**：`POST /sensorlog` 将设备定位追加到 `data/sensorlog/{device}_{YYYY-MM-DD}.csv`，便于地图演示。
-- **可配置日志**：优先读取 `log_config.ini`，缺失时自动回退最小日志配置。 
+- **可配置日志**：优先读取 `log_config.ini`，缺失时自动回退最小日志配置。
 
 ## 环境要求
 
@@ -39,20 +40,36 @@ font_path: "fonts/ttf/PingFangSC-Light.ttf"
 
 ## 安装
 
+### 方式一：使用 uv（推荐）
+
+```bash
+# 安装 uv
+pip install uv
+
+# 同步依赖
+uv sync
+```
+
+### 方式二：使用 pip
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows 使用 .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install fastapi[standard] pandas matplotlib seaborn uvicorn colorlog python-multipart pyinstaller psycopg2-binary pyyaml sqlalchemy
-# 可选：安装 uv 后执行 uv sync ，自动依据 uv.lock 安装依赖
+python -m pip install -r requirements.txt
 ```
 
 ## 启动服务
 
 ```bash
+# 方式一：直接运行
 python main.py
-# 或
+
+# 方式二：使用 uv
 uv run main.py
+
+# 方式三：生产部署（多 workers）
+uvicorn main:app --host 0.0.0.0 --port 7763 --workers 2
 ```
 
 默认监听 `0.0.0.0:7763`。启动时会创建 `data/`、`images/`、`logs/`、`data/sensorlog/` 等目录并加载日志配置。
@@ -120,19 +137,44 @@ curl -X POST http://127.0.0.1:7763/api/upload \
 ├── logs/              # 运行日志输出目录
 ├── routes/            # API 路由（get/post）
 ├── services/          # 业务层（配置、绘图、数据库、工具、初始化）
-├── static/            # AMap 地图演示页资源
 ├── web/               # WebSocket 地图后端（未默认挂载路由）
+├── static/            # 静态资源
 ├── main.py            # FastAPI 应用入口
 ├── log_config.ini     # uvicorn 日志配置（可选）
-└── pyproject.toml     # 依赖声明
+├── pyproject.toml     # 依赖声明
+├── uv.lock            # uv 依赖锁定文件
+└── AGENTS.md          # AI 代理开发指南
 ```
+
+## 日志配置
+
+日志配置使用 Python 标准 logging 配置文件格式。优先查找 `log_config.ini`，找不到则自动生成最小配置。
+
+```ini
+[loggers]
+keys=root
+
+[handlers]
+keys=logfile,logconsole
+
+[formatters]
+keys=colored,default
+
+[logger_root]
+level=INFO
+handlers=logfile, logconsole
+```
+
+日志文件按天轮转，保留 30 天，存储在 `logs/` 目录下。
 
 ## 开发与扩展
 
 - 在 `services/config.py` 的 `ALLOWED_ELEMENTS` / `ELEMENTS` 中扩展可用要素，即可同步影响校验和绘图展示。
 - 如需接入其他数据库，可在 `services/postgresql.py` 中调整 `engine` 创建与表结构。
-- 生产部署建议使用 `uvicorn main:app --host 0.0.0.0 --port 7763 --workers 2` 或容器化，并配置数据库账号最小权限。
+- 生产部署建议使用容器化，并配置数据库账号最小权限。
 
 ## 许可证
 
-- MIT License，欢迎通过 Issues / PR 提交改进。
+MIT License
+
+欢迎通过 Issues / PR 提交改进。

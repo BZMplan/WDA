@@ -1,8 +1,8 @@
+import time
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, field_validator
-import time
 
+from pydantic import BaseModel, field_validator
 
 ALLOWED_ELEMENTS = [
     "temperature",
@@ -26,15 +26,15 @@ ELEMENTS = [
 
 
 class location(BaseModel):
-    deviceID: Optional[str] = None  # 设备名称
-    locationTimestamp_since1970: Optional[float] = None  # 设备时间戳
-    time_utc: Optional[datetime] = (
-        None  # utc时间    locationAltitude: Optional[float] = None  # 海拔
-    )
-    locationLatitude: Optional[float] = None  # 纬度
-    locationLongitude: Optional[float] = None  # 经度
-    locationSpeed: Optional[float] = None  # 速度
-    locationHorizontalAccuracy: Optional[float] = None  # 水平精确度
+    """定位数据模型"""
+
+    deviceID: Optional[str] = None
+    locationTimestamp_since1970: Optional[float] = None
+    locationAltitude: Optional[float] = None
+    locationLatitude: Optional[float] = None
+    locationLongitude: Optional[float] = None
+    locationSpeed: Optional[float] = None
+    locationHorizontalAccuracy: Optional[float] = None
 
     @field_validator("locationTimestamp_since1970")
     @classmethod
@@ -52,16 +52,18 @@ class location(BaseModel):
 
 
 class meteorological_elements(BaseModel):
-    station_name: str = None  # 站点名称
-    timestamp: Optional[int] = None  # 时间戳
-    time_utc: Optional[datetime] = None  # utc时间
-    temperature: Optional[float] = None  # 气温
-    pressure: Optional[float] = None  # 气压
-    relative_humidity: Optional[float] = None  # 相对湿度
-    dew_point: Optional[float] = None  # 露点
-    sea_level_pressure: Optional[float] = None  # 海压
-    wind_speed: Optional[float] = None  # 风速
-    wind_direction: Optional[float] = None  # 风向
+    """气象要素数据模型"""
+
+    station_name: str = None
+    timestamp: Optional[int] = None
+    time_utc: Optional[datetime] = None
+    temperature: Optional[float] = None
+    pressure: Optional[float] = None
+    relative_humidity: Optional[float] = None
+    dew_point: Optional[float] = None
+    sea_level_pressure: Optional[float] = None
+    wind_speed: Optional[float] = None
+    wind_direction: Optional[float] = None
 
     class Config:
         extra = "ignore"
