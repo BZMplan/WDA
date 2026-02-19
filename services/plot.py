@@ -17,7 +17,8 @@ matplotlib.use("Agg", force=True)
 logger = logging.getLogger("uvicorn.app")
 
 font_path = CONFIG.get("font_path")
-font_manager.fontManager.addfont(font_path)
+if font_path:
+    font_manager.fontManager.addfont(font_path)
 font = font_manager.FontProperties(fname=font_path)
 
 plt.rcParams["font.family"] = font.get_name()
@@ -97,7 +98,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
             fontsize=24,
         )
 
-    plt.tight_layout(rect=[0, 0, 1, 0.985])
+    plt.tight_layout(rect=(0, 0, 1, 0.985))
 
     image_id = str(uuid.uuid4())
     file_name = f"{image_id}.png"
@@ -107,7 +108,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
     return file_name, image_id
 
 
-def setup(station_name, table_name=None, elements=None):
+def setup(station_name, table_name:str, elements=None):
     """
     绘图初始化函数
 

@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pandas import DataFrame
+from pandas import DataFrame, Index
 from sqlalchemy import (
     Column,
     DateTime,
@@ -171,7 +171,7 @@ def get_table_data(table_name: str, columns: List[str]) -> DataFrame:
     with engine.connect() as conn:
         stmt = select(*selected_cols)
         result = conn.execute(stmt)
-        df = DataFrame(result.fetchall(), columns=columns)
+        df = DataFrame(result.fetchall(), columns=Index(list(columns)))
     return df
 
 
@@ -194,7 +194,7 @@ def get_latest_data(table_name: str, time_column: str = "time_utc") -> DataFrame
     with engine.connect() as conn:
         stmt = select(table).order_by(table.c[time_column].desc()).limit(1)
         result = conn.execute(stmt)
-        df = DataFrame(result.fetchall(), columns=result.keys())
+        df = DataFrame(result.fetchall(), columns=Index(list(result.keys())))
     return df
 
 
@@ -219,7 +219,7 @@ def search_data(table_name: str, column: str, value: Any) -> Optional[DataFrame]
         rows = result.fetchall()
         if not rows:
             return None
-        df = DataFrame(rows, columns=result.keys())
+        df = DataFrame(rows, columns=Index(list(result.keys())))
     return df
 
 
