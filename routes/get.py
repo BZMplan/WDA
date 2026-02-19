@@ -21,9 +21,17 @@ logger = logging.getLogger("uvicorn.app")
 
 @router.get("/api/get/info")
 async def api_get_info(
-    station_name: str = None,
+    station_name: str | None = None,
 ) -> Dict[str, Any]:
-    """获取实时站点数据"""
+    """
+    获取实时站点数据
+
+    参数:
+        station_name: 站点名称 (str, optional)
+
+    返回:
+        Dict[str, Any]: 包含状态码、消息和数据的字典
+    """
     timestamp = int(time.time())
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
     table_name = f"table_{station_name}_{day}"
@@ -46,10 +54,20 @@ async def api_get_info(
 @router.get("/api/get/image")
 async def api_get_image(
     station_name: str,
-    date: str = None,
+    date: str | None = None,
     elements: str = Query(...),
 ) -> Dict[str, Any]:
-    """发送请求获取对应图片的url"""
+    """
+    发送请求获取对应图片的url
+
+    参数:
+        station_name: 站点名称 (str)
+        date: 日期，格式为YYYY_MM_DD，默认为当天 (str, optional)
+        elements: 要绘制的要素列表，支持JSON数组或逗号分隔字符串 (str)
+
+    返回:
+        Dict[str, Any]: 包含状态码、图片ID和访问URL的字典
+    """
     if not date:
         date = datetime.now().strftime("%Y_%m_%d")
 
@@ -117,7 +135,18 @@ async def api_get_image(
 
 @router.get("/image")
 async def image(image_token: str) -> FileResponse:
-    """显示图片资源"""
+    """
+    显示图片资源
+
+    参数:
+        image_token: 图片访问令牌 (str)
+
+    返回:
+        FileResponse: 图片文件响应
+
+    异常:
+        HTTPException: 403 - URL无效或已过期/已使用
+    """
     result = postgresql.search_data("image_tokens", "image_token", image_token)
     data = (
         None if result is None else next(iter(result.to_dict(orient="index").values()))
@@ -134,5 +163,10 @@ async def image(image_token: str) -> FileResponse:
 
 @router.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> Response:
-    """Favicon endpoint"""
+    """
+    Favicon endpoint
+
+    返回:
+        Response: 204 No Content响应
+    """
     return Response(status_code=204)

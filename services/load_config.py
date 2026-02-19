@@ -3,11 +3,18 @@ import logging
 import yaml
 
 logger = logging.getLogger("uvicorn.app")
-CONFIG = {}
+CONFIG = dict()
 
 
 def load_postgresql(path="./config.yaml"):
-    """初始化数据库配置"""
+    """
+    初始化数据库配置
+
+    从 YAML 配置文件加载配置信息到全局 CONFIG 变量。
+
+    参数:
+        path (str): 配置文件路径，默认为 "./config.yaml"
+    """
     global CONFIG
     try:
         with open(path, "r", encoding="utf-8") as file:
