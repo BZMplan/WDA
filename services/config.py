@@ -92,7 +92,7 @@ class meteorological_elements(BaseModel):
         wind_direction (Optional[float]): 风向
     """
 
-    station_name: str = None
+    station_name: str
     timestamp: Optional[int] = None
     time_utc: Optional[datetime] = None
     temperature: Optional[float] = None

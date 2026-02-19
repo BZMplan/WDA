@@ -21,7 +21,7 @@ logger = logging.getLogger("uvicorn.app")
 
 @router.get("/api/get/info")
 async def api_get_info(
-    station_name: str = None,
+    station_name: str | None = None,
 ) -> Dict[str, Any]:
     """
     获取实时站点数据
@@ -54,7 +54,7 @@ async def api_get_info(
 @router.get("/api/get/image")
 async def api_get_image(
     station_name: str,
-    date: str = None,
+    date: str | None = None,
     elements: str = Query(...),
 ) -> Dict[str, Any]:
     """

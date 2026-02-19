@@ -3,7 +3,7 @@ import logging
 import yaml
 
 logger = logging.getLogger("uvicorn.app")
-CONFIG = {}
+CONFIG = dict()
 
 
 def load_postgresql(path="./config.yaml"):
