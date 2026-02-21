@@ -1,9 +1,0 @@
-postgresql:
-  host: 192.168.10.126
-  port: 5432
-  database: postgres
-  username: postgres
-  password: eothkl123
-
-
-font_path: "fonts/ttf/PingFangSC-Light.ttf"

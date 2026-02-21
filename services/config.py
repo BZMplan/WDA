@@ -1,107 +1,130 @@
-import time
-from datetime import datetime
-from typing import Optional
+import atexit
+import logging
+import os
+from pathlib import Path
+import sys
+import tempfile
 
-from pydantic import BaseModel, field_validator
+import yaml
 
-ALLOWED_ELEMENTS = [
-    "temperature",
-    "pressure",
-    "relative_humidity",
-    "dew_point",
-    "sea_level_pressure",
-    "wind_speed",
-    "wind_direction",
-]
-
-ELEMENTS = [
-    ("temperature", "气温", "°C", "red"),
-    ("pressure", "压强", "hPa", "blue"),
-    ("relative_humidity", "相对湿度", "%", "green"),
-    ("dew_point", "露点", "°C", "red"),
-    ("sea_level_pressure", "海压", "hPa", "blue"),
-    ("wind_speed", "风速", "m/s", "yellow"),
-    ("wind_direction", "风向", "°", "black"),
-]
+logger = logging.getLogger("uvicorn.app")
 
 
-class location(BaseModel):
+
+def _find_log_config_path():
     """
-    定位数据模型
+    在常见位置查找 log_config.yaml。找不到则返回 None。
 
-    用于接收设备定位数据的 Pydantic 模型
-
-    属性:
-        deviceID (Optional[str]): 设备名称
-        locationTimestamp_since1970 (Optional[float]): 设备时间戳
-        locationAltitude (Optional[float]): 海拔
-        locationLatitude (Optional[float]): 纬度
-        locationLongitude (Optional[float]): 经度
-        locationSpeed (Optional[float]): 速度
-        locationHorizontalAccuracy (Optional[float]): 水平精确度
+    返回:
+        Optional[Path]: 配置文件路径或 None
     """
-
-    deviceID: Optional[str] = None
-    locationTimestamp_since1970: Optional[float] = None
-    locationAltitude: Optional[float] = None
-    locationLatitude: Optional[float] = None
-    locationLongitude: Optional[float] = None
-    locationSpeed: Optional[float] = None
-    locationHorizontalAccuracy: Optional[float] = None
-
-    @field_validator("locationTimestamp_since1970")
-    @classmethod
-    def check_timestamp(cls, v):
-        """
-        校验时间戳
-
-        参数:
-            v: 输入的时间戳值
-
-        返回:
-            int: 处理后的时间戳
-        """
-        now = time.time()
-        if v is None:
-            return int(v)
-        elif abs(now - v) > 10:
-            return int((now + v) / 2)
-        else:
-            return int(v)
-
-    class Config:
-        extra = "ignore"
+    candidates = [
+        Path.cwd() / "log_config.yaml",
+        Path(__file__).resolve().parent.parent / "log_config.yaml",
+    ]
+    for p in candidates:
+        if p.is_file():
+            return p
+    return None
 
 
-class meteorological_elements(BaseModel):
+def _write_temp_config(content):
     """
-    气象要素数据模型
+    将配置写入临时 .yaml 文件并注册退出清理，返回文件路径。
 
-    用于接收气象站数据的 Pydantic 模型
+    参数:
+        content (str): 配置内容
 
-    属性:
-        station_name (str): 站点名称
-        timestamp (Optional[int]): 时间戳
-        time_utc (Optional[datetime]): UTC时间
-        temperature (Optional[float]): 气温
-        pressure (Optional[float]): 气压
-        relative_humidity (Optional[float]): 相对湿度
-        dew_point (Optional[float]): 露点
-        sea_level_pressure (Optional[float]): 海压
-        wind_speed (Optional[float]): 风速
-        wind_direction (Optional[float]): 风向
+    返回:
+        str: 临时文件路径
     """
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".yaml", delete=False, encoding="utf-8"
+    )
+    try:
+        tmp.write(content)
+        tmp.flush()
+    finally:
+        tmp.close()
+    atexit.register(lambda p=tmp.name: os.path.exists(p) and os.remove(p))
+    return tmp.name
 
-    station_name: str
-    timestamp: Optional[int] = None
-    time_utc: Optional[datetime] = None
-    temperature: Optional[float] = None
-    pressure: Optional[float] = None
-    relative_humidity: Optional[float] = None
-    dew_point: Optional[float] = None
-    sea_level_pressure: Optional[float] = None
-    wind_speed: Optional[float] = None
-    wind_direction: Optional[float] = None
 
-    class Config:
-        extra = "ignore"
+def load_logging_config():
+    """
+    返回可供 uvicorn 使用的日志配置文件路径。
+
+    - 打包环境（sys.frozen）：从临时目录读取原始配置并复制到可写的临时文件
+    - 开发环境：优先使用当前工作目录/项目根的 log_config.yaml
+    - 若找不到配置文件，则生成最小可用的日志配置到临时文件并返回
+
+    返回:
+        str: 日志配置文件路径
+    """
+    minimal_config = """
+version: 1
+disable_existing_loggers: false
+formatters:
+  default:
+    format: "%(asctime)s [%(process)d] - %(levelname)s [%(thread)d] - %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: default
+    stream: ext://sys.stdout
+loggers:
+  root:
+    level: INFO
+    handlers: [console]
+  uvicorn:
+    level: INFO
+    handlers: [console]
+    qualname: uvicorn
+    propagate: false
+""".strip()
+
+    if getattr(sys, "frozen", False):
+        base_dir = Path(getattr(sys, "_MEIPASS", Path.cwd()))
+        packaged = base_dir / "log_config.yaml"
+        try:
+            if packaged.is_file():
+                content = packaged.read_text(encoding="utf-8")
+                return _write_temp_config(content)
+            else:
+                logger.warning("未找到打包内日志配置，使用最小配置")
+                return _write_temp_config(minimal_config)
+        except Exception as e:
+            logger.warning("读取打包日志配置失败: %s，使用最小配置", e)
+            return _write_temp_config(minimal_config)
+
+    cfg = _find_log_config_path()
+    if cfg is not None:
+        return str(cfg)
+
+    logger.warning("未找到日志配置文件log_config.yaml，使用最小配置")
+    return _write_temp_config(minimal_config)
+
+
+def load_postgresql_config(path="./sql_config.yaml"):
+    """
+    初始化数据库配置
+
+    从 YAML 配置文件加载配置信息到全局 CONFIG 变量。
+
+    参数:
+        path (str): 配置文件路径，默认为 "./sql_config.yaml"
+    """
+    # global SQL_CONFIG
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            SQL_CONFIG = yaml.safe_load(file)
+    except FileNotFoundError:
+        logger.warning(f"错误：找不到配置文件 {path},使用空配置")
+        SQL_CONFIG = {}
+    except yaml.YAMLError as e:
+        logger.warning(f"错误：解析 YAML 出错: {e}")
+        SQL_CONFIG = {}
+    
+    return SQL_CONFIG
