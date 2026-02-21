@@ -9,14 +9,15 @@ from matplotlib import dates, font_manager
 from matplotlib.ticker import FuncFormatter
 
 import services.elements as cfg
-from services.load_config import CONFIG
+from services.config import load_postgresql_config
 from services.sql import get_table_data
 
 matplotlib.use("Agg", force=True)
+SQL_CONFIG = load_postgresql_config()
 
 logger = logging.getLogger("uvicorn.app")
 
-font_path = CONFIG.get("font_path")
+font_path = SQL_CONFIG.get("font_path")
 if font_path:
     font_manager.fontManager.addfont(font_path)
 font = font_manager.FontProperties(fname=font_path)
@@ -108,7 +109,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
     return file_name, image_id
 
 
-def setup(station_name, table_name:str, elements=None):
+def setup(station_name, table_name: str, elements=None):
     """
     绘图初始化函数
 

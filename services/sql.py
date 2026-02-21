@@ -17,15 +17,17 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 
-from services.load_config import CONFIG
+from services.config import load_postgresql_config
 
 logger = logging.getLogger("uvicorn.app")
 
-username = CONFIG.get("postgresql", {}).get("username")
-password = CONFIG.get("postgresql", {}).get("password")
-host = CONFIG.get("postgresql", {}).get("host")
-port = CONFIG.get("postgresql", {}).get("port")
-database = CONFIG.get("postgresql", {}).get("database")
+SQL_CONFIG = load_postgresql_config()
+
+username = SQL_CONFIG.get("postgresql", {}).get("username")
+password = SQL_CONFIG.get("postgresql", {}).get("password")
+host = SQL_CONFIG.get("postgresql", {}).get("host")
+port = SQL_CONFIG.get("postgresql", {}).get("port")
+database = SQL_CONFIG.get("postgresql", {}).get("database")
 DATABASE_URL = f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database}"
 
 engine: Engine = create_engine(DATABASE_URL, echo=False)

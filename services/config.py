@@ -1,38 +1,14 @@
 import atexit
 import logging
 import os
+from pathlib import Path
 import sys
 import tempfile
-from pathlib import Path
 
-from services.sql import create_image_tokons_table
+import yaml
 
 logger = logging.getLogger("uvicorn.app")
 
-
-def setup_dirs(base=".", names=("data", "images", "logs")):
-    """
-    初始化运行所需的外部文件夹。
-
-    默认在当前工作目录创建 data/images/logs
-    允许通过 base/names 定制，保持向后兼容
-
-    参数:
-        base (str): 基础路径，默认为当前目录
-        names (Iterable[str]): 文件夹名称列表
-    """
-    base_path = Path(base)
-    created = []
-    for name in names:
-        path = base_path / name
-        path.mkdir(parents=True, exist_ok=True)
-        created.append(str(path))
-    logger.info("初始化文件夹成功: %s", ", ".join(created))
-
-
-def init_postgresql():
-    """初始化数据库"""
-    create_image_tokons_table("image_tokens")
 
 
 def _find_log_config_path():
@@ -74,7 +50,7 @@ def _write_temp_config(content):
     return tmp.name
 
 
-def setup_log_config():
+def load_logging_config():
     """
     返回可供 uvicorn 使用的日志配置文件路径。
 
@@ -130,3 +106,25 @@ loggers:
     logger.warning("未找到日志配置文件log_config.yaml，使用最小配置")
     return _write_temp_config(minimal_config)
 
+
+def load_postgresql_config(path="./sql_config.yaml"):
+    """
+    初始化数据库配置
+
+    从 YAML 配置文件加载配置信息到全局 CONFIG 变量。
+
+    参数:
+        path (str): 配置文件路径，默认为 "./sql_config.yaml"
+    """
+    # global SQL_CONFIG
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            SQL_CONFIG = yaml.safe_load(file)
+    except FileNotFoundError:
+        logger.warning(f"错误：找不到配置文件 {path},使用空配置")
+        SQL_CONFIG = {}
+    except yaml.YAMLError as e:
+        logger.warning(f"错误：解析 YAML 出错: {e}")
+        SQL_CONFIG = {}
+    
+    return SQL_CONFIG

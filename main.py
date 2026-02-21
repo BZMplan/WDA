@@ -4,8 +4,9 @@ import uvicorn
 from fastapi import FastAPI
 
 from routes import get, post
-from services import bootstrap as init
-from services import utils as tools
+from services import init
+from services import config
+from services import utils
 
 logger = logging.getLogger("uvicorn.app")
 
@@ -13,20 +14,20 @@ app = FastAPI()
 app.include_router(get.router)
 app.include_router(post.router)
 
-
-threading.Thread(target=tools.clean_expired_image_tokens, daemon=True).start()
+threading.Thread(target=utils.clean_expired_image_tokens, daemon=True).start()
 
 if __name__ == "__main__":
     # 初始化文件夹
-    init.setup_dirs()
-    init.setup_dirs(base="data", names=["sensorlog"])
+    init.init_dirs()
+    init.init_dirs(base="data", names=["sensorlog"])
 
     # 初始化数据库
     init.init_postgresql()
 
-    # 初始化配置文件
-    log_config_path = init.setup_log_config()
-    
     uvicorn.run(
-        app=app, host="0.0.0.0", port=7763, workers=1, log_config=log_config_path
+        app=app,
+        host="0.0.0.0",
+        port=7763,
+        workers=1,
+        log_config=config.load_logging_config(),
     )

@@ -10,7 +10,7 @@
 
 - **实时采集与补算**：`POST /api/upload` 接收站点分钟级观测，自动补算露点温度与海平面气压（当气温/气压/湿度齐全时）。
 - **PostgreSQL 持久化**：按"站点 + 日期"自动创建表 `table_{station}_{YYYY_MM_DD}`，图片令牌记录在 `image_tokens` 表中。
-- **可视化服务**：异步生成 Matplotlib 折线图，字体路径由 `config.yaml` 配置，支持多要素多子图。
+- **可视化服务**：异步生成 Matplotlib 折线图，字体路径由 `sql_config.yaml` 配置，支持多要素多子图。
 - **安全的图片访问**：每张图生成一次性 token，120 秒内有效；后台线程定期删除过期 token 及 PNG 文件。
 - **定位轨迹采集**：`POST /sensorlog` 将设备定位追加到 `data/sensorlog/{device}_{YYYY-MM-DD}.csv`，便于地图演示。
 - **可配置日志**：优先读取 `log_config.ini`，缺失时自动回退最小日志配置。

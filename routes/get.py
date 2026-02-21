@@ -35,7 +35,7 @@ async def api_get_info(
     """
     timestamp = int(time.time())
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
-    table_name = f"table_{station_name}_{day}"
+    table_name = f"{station_name}_{day}"
 
     if not sql.table_exists(table_name):
         return {

@@ -28,7 +28,7 @@ async def api_upload(item: cfg.meteorological_elements) -> Dict[str, Any]:
     """
     timestamp = item.timestamp or int(time.time())
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
-    table_name = f"table_{item.station_name}_{day}"
+    table_name = f"{item.station_name}_{day}"
 
     def nullify(value):
         """统一空值处理函数"""
