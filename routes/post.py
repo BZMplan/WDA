@@ -1,14 +1,14 @@
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import pandas as pd
 from fastapi import APIRouter, status
 
-import services.config as cfg
+import services.elements as cfg
 from services import utils
-from services.postgresql import create_weather_data_table, insert_data, table_exists
+from services.sql import create_weather_data_table, insert_data, table_exists
 
 router = APIRouter(tags=["post"])
 

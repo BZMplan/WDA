@@ -5,14 +5,15 @@ import os
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
 
-import services.config as cfg
-from services import plot, postgresql
+import services.elements as cfg
+from services import plot
+from services import sql
 
 router = APIRouter(tags=["get"])
 
@@ -36,14 +37,14 @@ async def api_get_info(
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
     table_name = f"table_{station_name}_{day}"
 
-    if not postgresql.table_exists(table_name):
+    if not sql.table_exists(table_name):
         return {
             "status": status.HTTP_404_NOT_FOUND,
             "message": "无数据",
             "data": None,
         }
 
-    data = postgresql.get_latest_data(table_name)
+    data = sql.get_latest_data(table_name)
     if data is not None and isinstance(data, pd.DataFrame):
         data = data.to_dict(orient="records")
 
@@ -102,7 +103,7 @@ async def api_get_image(
 
     # 如果表不存在则直接返回无数据
     table_name = f"table_{station_name}_{date}"
-    if not postgresql.table_exists(table_name):
+    if not sql.table_exists(table_name):
         return {
             "status": status.HTTP_404_NOT_FOUND,
             "message": "无数据",
@@ -119,7 +120,7 @@ async def api_get_image(
             "image_token": image_token,
             "create_time": int(time.time()),
         }
-        postgresql.insert_data("image_tokens", data)
+        sql.insert_data("image_tokens", data)
 
         return {
             "status": status.HTTP_200_OK,
@@ -147,7 +148,7 @@ async def image(image_token: str) -> FileResponse:
     异常:
         HTTPException: 403 - URL无效或已过期/已使用
     """
-    result = postgresql.search_data("image_tokens", "image_token", image_token)
+    result = sql.search_data("image_tokens", "image_token", image_token)
     data = (
         None if result is None else next(iter(result.to_dict(orient="index").values()))
     )
@@ -157,7 +158,7 @@ async def image(image_token: str) -> FileResponse:
     _, file_name = data["create_time"], data["file_name"]
 
     # 一次性 token：消费后移除，文件由清理线程回收
-    postgresql.delete_row("image_tokens", "image_token", image_token)
+    sql.delete_row("image_tokens", "image_token", image_token)
     return FileResponse(os.path.join("images", file_name))
 
 

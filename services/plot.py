@@ -8,9 +8,9 @@ import pandas as pd
 from matplotlib import dates, font_manager
 from matplotlib.ticker import FuncFormatter
 
-import services.config as cfg
+import services.elements as cfg
 from services.load_config import CONFIG
-from services.postgresql import get_table_data
+from services.sql import get_table_data
 
 matplotlib.use("Agg", force=True)
 

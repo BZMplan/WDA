@@ -1,9 +1,8 @@
 import logging
 import os
 import time
-from typing import List, Tuple
 
-from services import postgresql
+from services import sql
 
 logger = logging.getLogger("uvicorn.app")
 
@@ -20,7 +19,7 @@ def clean_expired_image_tokens():
     """
     while True:
         current_time = time.time()
-        result = postgresql.get_table_data("image_tokens", ["create_time", "file_name"])
+        result = sql.get_table_data("image_tokens", ["create_time", "file_name"])
         arr = [(row["create_time"], row["file_name"]) for _, row in result.iterrows()]
 
         expired_files = [
@@ -32,7 +31,7 @@ def clean_expired_image_tokens():
         for _, file_name in expired_files:
             file_path = os.path.join("images", file_name)
             os.remove(file_path)
-            postgresql.delete_row("image_tokens", "file_name", file_name)
+            sql.delete_row("image_tokens", "file_name", file_name)
             logger.info(f"{file_path}过期，已删除")
 
         time.sleep(5)
