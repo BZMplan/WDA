@@ -31,3 +31,15 @@ loggers:
   root:
     level: INFO
     handlers: [logfile, logconsole]
+  uvicorn.access:
+    level: INFO
+    handlers: [logfile, logconsole]
+    propagate: no
+  uvicorn.error:
+    level: INFO
+    handlers: [logfile, logconsole]
+    propagate: no  
+  uvicorn.app:
+    level: INFO
+    handlers: [logfile, logconsole]
+    propagate: no  

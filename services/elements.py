@@ -77,7 +77,7 @@ class meteorological_elements(BaseModel):
     """
 
     station_name: str
-    timestamp: str | None = None
+    timestamp: int | None = None
     time_utc: datetime | None = None
     temperature: float | None = None
     pressure: float | None = None

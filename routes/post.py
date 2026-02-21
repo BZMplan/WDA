@@ -58,7 +58,6 @@ async def api_upload(item: cfg.meteorological_elements) -> Dict[str, Any]:
         "dew_point": nullify(dew_point),
     }
 
-    # 数据库操作封装
     try:
         if not table_exists(table_name):
             create_weather_data_table(table_name)
@@ -87,6 +86,7 @@ async def sensorlog(item: cfg.location) -> Dict[str, Any]:
     server_timestamp = int(time.time())
     day = time.strftime("%Y-%m-%d", time.localtime(item.locationTimestamp_since1970))
     file_name = f"{item.deviceID}_{day}.csv"
+    table_name = f"{item.deviceID}_{day}"
     file_path = os.path.join("data/sensorlog", file_name)
 
     row = {
@@ -104,20 +104,34 @@ async def sensorlog(item: cfg.location) -> Dict[str, Any]:
         "speed": item.locationSpeed,
     }
 
+    # try:
+    #     df = pd.DataFrame([row])
+    #     df.to_csv(
+    #         file_path,
+    #         index=False,
+    #         header=not os.path.exists(file_path),
+    #         sep=",",
+    #         mode="a",
+    #     )
+    # except Exception as e:
+    #     return {
+    #         "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         "message": f"write data failed: {e}",
+    #         "data": None,
+    #     }
+
+    # return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
+
+    
     try:
-        df = pd.DataFrame([row])
-        df.to_csv(
-            file_path,
-            index=False,
-            header=not os.path.exists(file_path),
-            sep=",",
-            mode="a",
-        )
+        if not table_exists(table_name):
+            create_weather_data_table(table_name)
+        insert_data(table_name, row)
     except Exception as e:
         return {
             "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "message": f"write data failed: {e}",
+            "message": f"Database write failed: {str(e)}",
             "data": None,
         }
 
-    return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
+    return {"status": status.HTTP_200_OK, "message": "Upload success", "data": row}

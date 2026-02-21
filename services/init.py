@@ -28,4 +28,5 @@ def init_dirs(base=".", names=("data", "images", "logs")):
 def init_postgresql():
     """初始化数据库"""
     create_image_tokons_table("image_tokens")
+    logger.info("数据库初始化成功")
 

@@ -1,10 +1,22 @@
 import logging
 import os
 import time
-
+from functools import wraps
 from services import sql
 
 logger = logging.getLogger("uvicorn.app")
+
+
+def _log_after_run(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        # 1. 执行函数本身
+        result = await func(*args, **kwargs)
+        # 2. 执行完后发送日志
+        logger.info(f"函数 [{func.__name__}] 已成功运行")
+        return result
+
+    return wrapper
 
 
 def clean_expired_image_tokens():
@@ -17,6 +29,7 @@ def clean_expired_image_tokens():
     注意:
         此函数包含无限循环，应在后台线程中运行。
     """
+    logger.info(f"清理过期图片线程已成功运行")
     while True:
         current_time = time.time()
         result = sql.get_table_data("image_tokens", ["create_time", "file_name"])
