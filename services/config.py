@@ -10,7 +10,6 @@ import yaml
 logger = logging.getLogger("uvicorn.app")
 
 
-
 def _find_log_config_path():
     """
     在常见位置查找 log_config.yaml。找不到则返回 None。
@@ -116,7 +115,6 @@ def load_postgresql_config(path="./sql_config.yaml"):
     参数:
         path (str): 配置文件路径，默认为 "./sql_config.yaml"
     """
-    # global SQL_CONFIG
     try:
         with open(path, "r", encoding="utf-8") as file:
             SQL_CONFIG = yaml.safe_load(file)
@@ -126,5 +124,27 @@ def load_postgresql_config(path="./sql_config.yaml"):
     except yaml.YAMLError as e:
         logger.warning(f"错误：解析 YAML 出错: {e}")
         SQL_CONFIG = {}
-    
+
     return SQL_CONFIG
+
+
+def load_plot_config(path="./plot_config.yaml"):
+    """
+    初始化数据库配置
+
+    从 YAML 配置文件加载配置信息到全局 CONFIG 变量。
+
+    参数:
+        path (str): 配置文件路径，默认为 "./plot_config.yaml"
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            PLOT_CONFIG = yaml.safe_load(file)
+    except FileNotFoundError:
+        logger.warning(f"错误：找不到配置文件 {path},使用空配置")
+        PLOT_CONFIG = {}
+    except yaml.YAMLError as e:
+        logger.warning(f"错误：解析 YAML 出错: {e}")
+        PLOT_CONFIG = {}
+
+    return PLOT_CONFIG

@@ -1,6 +1,5 @@
 import logging
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -9,19 +8,18 @@ from matplotlib import dates, font_manager
 from matplotlib.ticker import FuncFormatter
 
 import services.elements as cfg
-from services.config import load_postgresql_config
+from services.config import load_plot_config
 from services.sql import get_table_data
-
-matplotlib.use("Agg", force=True)
-SQL_CONFIG = load_postgresql_config()
 
 logger = logging.getLogger("uvicorn.app")
 
-font_path = SQL_CONFIG.get("font_path")
+PLOT_CONFIG = load_plot_config()
+font_path = PLOT_CONFIG.get("font_path")
 if font_path:
     font_manager.fontManager.addfont(font_path)
 font = font_manager.FontProperties(fname=font_path)
 
+matplotlib.use("Agg", force=True)
 plt.rcParams["font.family"] = font.get_name()
 plt.rcParams["axes.unicode_minus"] = False
 
@@ -70,11 +68,12 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
     fig, axes = plt.subplots(n, 1, figsize=(12, fig_h), sharex=True)
     axes_list = axes if n > 1 else [axes]
 
-    plot_df["time_local"] = (
-        pd.to_datetime(plot_df["time_utc"], utc=True)
-        .dt.tz_convert("Asia/Shanghai")
-        .dt.tz_localize(None)
-    )
+    # plot_df["time_local"] = (
+    #     pd.to_datetime(plot_df["time_utc"], utc=True)
+    #     .dt.tz_convert("Asia/Shanghai")
+    #     .dt.tz_localize(None)
+    # )
+    plot_df["time_local"] = pd.to_datetime(plot_df["time_utc"]) + pd.Timedelta(hours=8)
 
     for ax, (column, title, unit, color) in zip(axes_list, plot_elements):
         ax.plot(plot_df["time_local"], plot_df[column], color=color, linewidth=1.2)
@@ -103,7 +102,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
 
     image_id = str(uuid.uuid4())
     file_name = f"{image_id}.png"
-    plt.savefig(f"./images/{file_name}", dpi=300, bbox_inches="tight")
+    plt.savefig(f"./images/{file_name}", dpi=150, bbox_inches="tight")
     plt.close()
     logger.info(f"图片'./images/{file_name}'已生成")
     return file_name, image_id
