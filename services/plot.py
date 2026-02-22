@@ -1,6 +1,5 @@
 import logging
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -8,27 +7,26 @@ import pandas as pd
 from matplotlib import dates, font_manager
 from matplotlib.ticker import FuncFormatter
 
-import services.elements as cfg
-from services.config import load_postgresql_config
+from services.elements import ELEMENTS
+from services.config import load_plot_config
 from services.sql import get_table_data
-
-matplotlib.use("Agg", force=True)
-SQL_CONFIG = load_postgresql_config()
 
 logger = logging.getLogger("uvicorn.app")
 
-font_path = SQL_CONFIG.get("font_path")
+PLOT_CONFIG = load_plot_config()
+font_path = PLOT_CONFIG.get("font_path")
 if font_path:
     font_manager.fontManager.addfont(font_path)
 font = font_manager.FontProperties(fname=font_path)
 
+matplotlib.use("Agg", force=True)
 plt.rcParams["font.family"] = font.get_name()
 plt.rcParams["axes.unicode_minus"] = False
 
 datetime_format = dates.DateFormatter("%m-%d %H:%M")
 
 ELEMENT_MAP = {
-    name: (name, title, unit, color) for name, title, unit, color in cfg.ELEMENTS
+    name: (name, title, unit, color) for name, title, unit, color in ELEMENTS
 }
 
 
@@ -43,7 +41,7 @@ def _select_plot_elements(plot_elements):
         List[Tuple]: 筛选后的要素配置列表
     """
     if not plot_elements:
-        return cfg.ELEMENTS
+        return ELEMENTS
     return [ELEMENT_MAP[p] for p in plot_elements if p in ELEMENT_MAP]
 
 
@@ -70,11 +68,12 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
     fig, axes = plt.subplots(n, 1, figsize=(12, fig_h), sharex=True)
     axes_list = axes if n > 1 else [axes]
 
-    plot_df["time_local"] = (
-        pd.to_datetime(plot_df["time_utc"], utc=True)
-        .dt.tz_convert("Asia/Shanghai")
-        .dt.tz_localize(None)
-    )
+    # plot_df["time_local"] = (
+    #     pd.to_datetime(plot_df["time_utc"], utc=True)
+    #     .dt.tz_convert("Asia/Shanghai")
+    #     .dt.tz_localize(None)
+    # )
+    plot_df["time_local"] = pd.to_datetime(plot_df["time_utc"]) + pd.Timedelta(hours=8)
 
     for ax, (column, title, unit, color) in zip(axes_list, plot_elements):
         ax.plot(plot_df["time_local"], plot_df[column], color=color, linewidth=1.2)
@@ -90,7 +89,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
 
     if n > 1:
         fig.suptitle(
-            f"站点:{station_name} Multi-element Curve ({title_suffix})",
+            f"站点:{station_name} 多要素曲线 ({title_suffix})",
             fontsize=24,
         )
     else:
@@ -103,7 +102,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
 
     image_id = str(uuid.uuid4())
     file_name = f"{image_id}.png"
-    plt.savefig(f"./images/{file_name}", dpi=300, bbox_inches="tight")
+    plt.savefig(f"./images/{file_name}", dpi=150, bbox_inches="tight")
     plt.close()
     logger.info(f"图片'./images/{file_name}'已生成")
     return file_name, image_id

@@ -4,6 +4,3 @@ postgresql:
   database: pg_wda
   username: wda  
   password: jmWdQec3K7CaMhtt
-
-
-font_path: "fonts/ttf/PingFangSC-Light.ttf"
