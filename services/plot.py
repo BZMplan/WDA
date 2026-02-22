@@ -7,7 +7,7 @@ import pandas as pd
 from matplotlib import dates, font_manager
 from matplotlib.ticker import FuncFormatter
 
-import services.elements as cfg
+from services.elements import ELEMENTS
 from services.config import load_plot_config
 from services.sql import get_table_data
 
@@ -26,7 +26,7 @@ plt.rcParams["axes.unicode_minus"] = False
 datetime_format = dates.DateFormatter("%m-%d %H:%M")
 
 ELEMENT_MAP = {
-    name: (name, title, unit, color) for name, title, unit, color in cfg.ELEMENTS
+    name: (name, title, unit, color) for name, title, unit, color in ELEMENTS
 }
 
 
@@ -41,7 +41,7 @@ def _select_plot_elements(plot_elements):
         List[Tuple]: 筛选后的要素配置列表
     """
     if not plot_elements:
-        return cfg.ELEMENTS
+        return ELEMENTS
     return [ELEMENT_MAP[p] for p in plot_elements if p in ELEMENT_MAP]
 
 
@@ -89,7 +89,7 @@ def _make_plots(plot_df, plot_elements, station_name, title_suffix):
 
     if n > 1:
         fig.suptitle(
-            f"站点:{station_name} Multi-element Curve ({title_suffix})",
+            f"站点:{station_name} 多要素曲线 ({title_suffix})",
             fontsize=24,
         )
     else:
