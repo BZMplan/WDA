@@ -1,38 +1,25 @@
 import asyncio
-import json
 import logging
 import os
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, HTTPException,Response, status
 from fastapi.responses import FileResponse
 
 import services.elements as cfg
 from services import plot
 from services import sql
 
-router = APIRouter(tags=["get"])
+router = APIRouter(tags=["get","v1"])
 
 logger = logging.getLogger("uvicorn.app")
 
 
-@router.get("/api/get/info")
-async def api_get_info(
-    station_name: str | None = None,
-) -> Dict[str, Any]:
-    """
-    获取实时站点数据
-
-    参数:
-        station_name: 站点名称 (str, optional)
-
-    返回:
-        Dict[str, Any]: 包含状态码、消息和数据的字典
-    """
+@router.get("/v1/data")
+async def v1_data(station_name: str):
     timestamp = int(time.time())
     day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
     table_name = f"{station_name}_{day}"
@@ -52,23 +39,8 @@ async def api_get_info(
     return {"status": status.HTTP_200_OK, "message": "成功获取数据", "data": data}
 
 
-@router.get("/api/get/image")
-async def api_get_image(
-    station_name: str,
-    date: str | None = None,
-    elements: str = Query(...),
-) -> Dict[str, Any]:
-    """
-    发送请求获取对应图片的url
-
-    参数:
-        station_name: 站点名称 (str)
-        date: 日期，格式为YYYY_MM_DD，默认为当天 (str, optional)
-        elements: 要绘制的要素列表，支持JSON数组或逗号分隔字符串 (str)
-
-    返回:
-        Dict[str, Any]: 包含状态码、图片ID和访问URL的字典
-    """
+@router.get("/v1/image")
+async def v1_image(station_name: str, date: str | None):
     if not date:
         date = datetime.now().strftime("%Y_%m_%d")
 
@@ -80,26 +52,7 @@ async def api_get_image(
             "message": f"Wrong date: {date}",
         }
 
-    # 列参数解析：优先 JSON；失败时支持以逗号分隔
-    try:
-        element = json.loads(elements)
-    except json.JSONDecodeError:
-        element = [c.strip() for c in elements.split(",") if c.strip()]
-
-    # 如果element为all则选择全部参数
-    if len(element) == 1 and element[0] == "all":
-        element = cfg.ALLOWED_ELEMENTS
-
-    # 校验参数名
-    for p in element:
-        if p not in cfg.ALLOWED_ELEMENTS:
-            return {
-                "status": status.HTTP_400_BAD_REQUEST,
-                "message": {
-                    f"Invalid class: {p}",
-                    f"Legal class: {cfg.ALLOWED_ELEMENTS}",
-                },
-            }
+    element = cfg.ALLOWED_ELEMENTS
 
     # 如果表不存在则直接返回无数据
     table_name = f"table_{station_name}_{date}"
@@ -127,6 +80,7 @@ async def api_get_image(
             "image_id": image_id,
             "url": f"http://127.0.0.1:7763/image?image_token={image_token}",
         }
+
     except Exception as e:
         return {
             "status": status.HTTP_500_INTERNAL_SERVER_ERROR,

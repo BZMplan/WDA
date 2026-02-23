@@ -3,22 +3,22 @@ import os
 import time
 from typing import Any, Dict
 
-import pandas as pd
+from numpy import real
 from fastapi import APIRouter, status
 
 import services.elements as cfg
 from services import utils
 from services.sql import create_weather_data_table, insert_data, table_exists
 
-router = APIRouter(tags=["post"])
+router = APIRouter(tags=["post","v1"])
 
 logger = logging.getLogger("uvicorn.app")
 
 
-@router.post("/api/upload")
-async def api_upload(item: cfg.meteorological_elements) -> Dict[str, Any]:
+@router.post("/v1/upload")
+async def v1_upload(item: cfg.meteorological_elements):
     """
-    上传站点数据
+    上传站点数据(v1)
 
     参数:
         item: 气象要素数据模型 (meteorological_elements)
@@ -104,25 +104,6 @@ async def sensorlog(item: cfg.location) -> Dict[str, Any]:
         "speed": item.locationSpeed,
     }
 
-    # try:
-    #     df = pd.DataFrame([row])
-    #     df.to_csv(
-    #         file_path,
-    #         index=False,
-    #         header=not os.path.exists(file_path),
-    #         sep=",",
-    #         mode="a",
-    #     )
-    # except Exception as e:
-    #     return {
-    #         "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         "message": f"write data failed: {e}",
-    #         "data": None,
-    #     }
-
-    # return {"status": status.HTTP_200_OK, "message": "upload success", "data": row}
-
-    
     try:
         if not table_exists(table_name):
             create_weather_data_table(table_name)
