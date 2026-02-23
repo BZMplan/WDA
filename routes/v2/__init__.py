@@ -1,0 +1,1 @@
+from . import post as post_v2

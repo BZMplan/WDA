@@ -6,18 +6,19 @@ import uvicorn
 import yaml
 from fastapi import FastAPI
 
-from routes import get, post
+from routes import post_v1
+from routes import get_v1
+from routes import post_v2
 from services import init
 from services import config
 from services import utils
 
 logger = logging.getLogger("uvicorn.app")
 
-
 app = FastAPI()
-app.include_router(get.router)
-app.include_router(post.router)
-
+app.include_router(post_v1.router)
+app.include_router(get_v1.router)
+app.include_router(post_v2.router)
 
 if __name__ == "__main__":
     # 初始化日志
