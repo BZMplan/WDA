@@ -1,0 +1,71 @@
+import logging
+import time
+
+from fastapi import APIRouter, status
+
+from app.domain import models as cfg
+from app.services import weather as utils
+from app.db.sql import create_weather_data_table, insert_data, table_exists
+
+router = APIRouter(tags=["post","v2"])
+
+logger = logging.getLogger("uvicorn.app")
+
+
+@router.post("/v2/upload")
+async def v2_upload(item: cfg.meteorological_elements):
+    station_name = item.station_name
+    timestamp = item.timestamp or int(time.time())
+    temperature = item.temperature
+    pressure = item.pressure
+    relative_humidity = item.relative_humidity
+    wind_speed = item.wind_speed
+    wind_direction = item.wind_direction
+
+    dew_point = (
+        utils.calc_dew_point(temp_c=temperature, humidity_percent=relative_humidity)
+        if temperature is not None and relative_humidity is not None
+        else None
+    )
+    sea_level_pressure = (
+        utils.calc_sea_level_pressure(
+            temp_c=temperature,
+            pressure_hpa=pressure,
+            humidity_percent=relative_humidity,
+            altitude_m=30.0,
+        )
+        if (
+            temperature is not None
+            and pressure is not None
+            and relative_humidity is not None
+        )
+        else None
+    )
+
+    row = {
+        "station_name": station_name,
+        "time_utc": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(timestamp)),
+        "temperature": temperature,
+        "pressure": pressure,
+        "relative_humidity": relative_humidity,
+        "wind_speed": wind_speed,
+        "wind_direction": wind_direction,
+        "sea_level_pressure": sea_level_pressure,
+        "dew_point": dew_point,
+    }
+
+    day = time.strftime("%Y_%m_%d", time.localtime(timestamp))
+    table_name = f"{station_name}_{day}"
+
+    try:
+        if not table_exists(table_name):
+            create_weather_data_table(table_name)
+        insert_data(table_name, row)
+    except Exception as e:
+        return {
+            "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "message": f"Database write failed: {str(e)}",
+            "data": None,
+        }
+
+    return {"status": status.HTTP_200_OK, "message": "Upload success", "data": row}

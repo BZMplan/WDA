@@ -10,10 +10,10 @@
 
 - **实时采集与补算**：`POST /api/upload` 接收站点分钟级观测，自动补算露点温度与海平面气压（当气温/气压/湿度齐全时）。
 - **PostgreSQL 持久化**：按"站点 + 日期"自动创建表 `{station}_{YYYY_MM_DD}`，图片令牌记录在 `image_tokens` 表中。
-- **可视化服务**：异步生成 Matplotlib 折线图，字体路径由 `sql_config.yaml` 配置，支持多要素多子图。
+- **可视化服务**：异步生成 Matplotlib 折线图，字体路径由 `config.yaml` 的 `plot.font_path` 配置，支持多要素多子图。
 - **安全的图片访问**：每张图生成一次性 token，120 秒内有效；后台线程定期删除过期 token 及 PNG 文件。
 - **定位轨迹采集**：`POST /sensorlog` 将设备定位写入 PostgreSQL，便于地图演示。
-- **可配置日志**：优先读取 `log_config.yaml`，缺失时自动回退最小日志配置。支持请求处理时间记录。
+- **可配置日志**：优先读取 `config.yaml` 的 `logging` 段，缺失时自动回退最小日志配置。支持请求处理时间记录。
 
 ## 环境要求
 
@@ -23,7 +23,7 @@
 
 ## 配置
 
-在 `sql_config.yaml` 设置数据库连接与字体路径：
+在 `config.yaml` 中统一设置数据库、绘图与日志配置：
 
 ```yaml
 postgresql:
@@ -33,7 +33,13 @@ postgresql:
   username: postgres
   password: your_password
 
-font_path: "fonts/ttf/PingFangSC-Light.ttf"
+plot:
+  font_path: "fonts/ttf/PingFangSC-Light.ttf"
+
+logging:
+  version: 1
+  disable_existing_loggers: false
+  ...
 ```
 
 启动时会创建图片令牌表 `image_tokens`；气象数据表在首次上传时按需创建。
@@ -130,14 +136,19 @@ curl -X POST http://127.0.0.1:7763/api/upload \
 
 ```
 .
-├── sql_config.yaml    # 数据库与字体配置
-├── log_config.yaml    # uvicorn 日志配置
+├── config.yaml        # 统一配置（数据库、绘图、日志）
 ├── fonts/             # 中文显示所需字体
 ├── images/            # 渲染后的折线图（运行时生成并定期清理）
 ├── data/              # 运行时数据
 ├── logs/              # 运行日志输出目录
-├── routes/            # API 路由（get/post）
-├── services/          # 业务层（config、init、plot、sql、utils）
+├── app/               # 主业务包
+│   ├── api/           # 接口层（v1/v2 路由）
+│   ├── core/          # 配置与启动初始化
+│   ├── db/            # 数据库访问
+│   ├── domain/        # 数据模型与领域常量
+│   └── services/      # 绘图/计算等业务服务
+├── routes/            # 兼容层（转发到 app.api）
+├── services/          # 兼容层（转发到 app.*）
 ├── main.py            # FastAPI 应用入口
 ├── pyproject.toml     # 依赖声明
 └── uv.lock            # uv 依赖锁定文件
@@ -145,7 +156,7 @@ curl -X POST http://127.0.0.1:7763/api/upload \
 
 ## 日志配置
 
-日志配置使用 YAML 格式。优先查找 `log_config.yaml`，找不到则自动生成最小配置。
+日志配置使用 YAML 格式。优先读取 `config.yaml` 的 `logging` 段，找不到则自动生成最小配置。
 
 ```yaml
 version: 1
@@ -172,8 +183,8 @@ loggers:
 
 ## 开发与扩展
 
-- 在 `services/elements.py` 的 `ALLOWED_ELEMENTS` / `ELEMENTS` 中扩展可用要素，即可同步影响校验和绘图展示。
-- 如需接入其他数据库，可在 `services/sql.py` 中调整 `engine` 创建与表结构。
+- 在 `app/domain/models.py` 的 `ALLOWED_ELEMENTS` / `ELEMENTS` 中扩展可用要素，即可同步影响校验和绘图展示。
+- 如需接入其他数据库，可在 `app/db/sql.py` 中调整 `engine` 创建与表结构。
 - 生产部署建议使用容器化，并配置数据库账号最小权限。
 
 ## 许可证
